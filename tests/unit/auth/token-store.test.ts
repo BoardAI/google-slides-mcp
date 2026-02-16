@@ -68,4 +68,13 @@ describe('TokenStore', () => {
     const loaded = await tokenStore.load();
     expect(loaded).toBeNull();
   });
+
+  it('should handle deleting non-existent tokens without error', async () => {
+    // Call delete when no file exists - should not throw
+    await expect(tokenStore.delete()).resolves.not.toThrow();
+
+    // Verify no file was created
+    const loaded = await tokenStore.load();
+    expect(loaded).toBeNull();
+  });
 });
