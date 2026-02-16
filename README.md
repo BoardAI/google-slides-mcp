@@ -1,50 +1,149 @@
 # Google Slides MCP Server
 
-A Model Context Protocol server for managing Google Slides presentations.
+A Model Context Protocol (MCP) server that provides comprehensive Google Slides management capabilities. Create, read, update, and delete presentations, slides, and elements programmatically through Claude.
 
 ## Features
 
-- OAuth 2.0 authentication
-- Full CRUD operations on presentations
-- Slide management (create, delete, reorder)
-- Element manipulation (text, images, shapes, tables)
+- 🔐 **OAuth 2.0 Authentication** - Secure user consent flow with automatic token refresh
+- 📊 **Presentation Management** - Create and retrieve presentations
+- 📄 **Slide Operations** - Create, delete, and duplicate slides
+- ✏️ **Element Manipulation** - Add text boxes, delete elements
+- 🎨 **Helper Tools** - Convenient shortcuts for common operations
+- 🔄 **Smart Retry Logic** - Automatic retry with exponential backoff for rate limits
+- ✅ **Type Safety** - Full TypeScript implementation
 
-## Setup
+## Quick Start
 
-1. Install dependencies: `npm install`
-2. Build: `npm run build`
-3. Configure OAuth credentials in `config/credentials.json`
-4. Run: `node dist/index.js`
+### Prerequisites
+
+- Node.js 18+ and npm
+- Google Cloud Project with Slides API enabled
+- OAuth 2.0 credentials (see [Setup Guide](docs/SETUP.md))
+
+### Installation
+
+1. Clone and install dependencies:
+
+```bash
+git clone <repo-url>
+cd google-slides-mcp
+npm install
+```
+
+2. Set up Google OAuth credentials:
+
+```bash
+cp config/credentials.example.json config/credentials.json
+# Edit config/credentials.json with your OAuth credentials
+```
+
+3. Build the project:
+
+```bash
+npm run build
+```
+
+4. Run the server:
+
+```bash
+node dist/index.js
+```
+
+On first run, a browser window will open for OAuth authentication. Once authenticated, tokens are stored securely in `~/.config/google-slides-mcp/tokens.json`.
+
+## Usage with Claude Desktop
+
+Add to your Claude Desktop MCP configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "google-slides": {
+      "command": "node",
+      "args": ["/absolute/path/to/google-slides-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You'll now have access to Google Slides tools!
+
+## Available Tools
+
+### Presentation Tools
+- `create_presentation` - Create new presentation
+- `get_presentation` - Retrieve presentation metadata
+
+### Slide Tools
+- `create_slide` - Add new slide
+- `delete_slide` - Remove slide
+- `duplicate_slide` - Copy slide
+
+### Element Tools
+- `element_delete` - Delete any element
+- `add_text_box` - Add text box with positioning
+
+See [API Documentation](docs/API.md) for detailed tool parameters.
 
 ## Development
 
-- Build: `npm run build`
-- Test: `npm test`
-- Watch: `npm run dev`
+```bash
+# Run tests
+npm test
 
-## Known Limitations (MVP)
+# Watch mode for development
+npm run dev
 
-This MVP implementation uses only the Google Slides API. Several features require the Google Drive API and are not yet implemented:
+# Build TypeScript
+npm run build
 
-### Not Available
+# Clean build artifacts
+npm run clean
+```
 
-- **List presentations**: Cannot enumerate user's presentations. You must provide presentation IDs directly.
-- **Delete presentations**: Cannot delete presentations programmatically. Use the Google Slides UI to delete.
-- **Copy presentations**: Cannot duplicate presentations. Create new presentations and manually copy content as a workaround.
-- **Search presentations**: No search functionality available.
-- **Manage permissions**: Cannot modify sharing settings programmatically.
+## Project Structure
 
-### Workarounds
+```
+google-slides-mcp/
+├── src/
+│   ├── auth/           # OAuth authentication
+│   ├── google/         # Google Slides API client
+│   ├── tools/          # MCP tool implementations
+│   └── utils/          # Utilities (response formatting, etc.)
+├── tests/              # Unit, integration, and E2E tests
+├── config/             # OAuth credentials
+└── docs/               # Documentation
+```
 
-- Get presentation IDs from the URL in Google Slides (e.g., `https://docs.google.com/presentation/d/PRESENTATION_ID/edit`)
-- Use the Google Slides web interface for file management operations
-- For copying, create a new presentation with `createPresentation()` and use batch updates to replicate content
+## Troubleshooting
 
-### Future Enhancements
+**"Credentials file not found"**
+- Ensure `config/credentials.json` exists with valid OAuth credentials
 
-To support these features, the server would need to:
-1. Add Google Drive API to OAuth scopes
-2. Integrate the `@googleapis/drive` client library
-3. Implement Drive API operations alongside Slides API operations
+**"Not authenticated"**
+- Delete `~/.config/google-slides-mcp/tokens.json` and re-run to trigger OAuth flow
 
-These limitations keep the MVP focused on core presentation editing capabilities while maintaining a clear path for future expansion.
+**"Permission denied"**
+- Check presentation sharing settings in Google Slides
+- Verify OAuth scopes include `https://www.googleapis.com/auth/presentations`
+
+**Rate limit errors**
+- Server automatically retries with exponential backoff
+- If persistent, wait a few minutes before retrying
+
+See [Setup Guide](docs/SETUP.md) for detailed troubleshooting.
+
+## Known Limitations
+
+- **List presentations**: Requires Google Drive API (planned for Phase 2)
+- **Delete presentations**: Requires Google Drive API (planned for Phase 2)
+- **Copy presentations**: Requires Google Drive API (planned for Phase 2)
+- **Image upload**: Currently requires image URLs (local file upload planned)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+## License
+
+MIT
