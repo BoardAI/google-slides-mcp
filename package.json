@@ -9,7 +9,10 @@
     "dev": "tsx watch src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "npm test -- --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "status": "./scripts/status.sh",
+    "sync": "./scripts/sync-dev.sh",
+    "release": "./scripts/release.sh"
   },
   "bin": {
     "google-slides-mcp": "./dist/index.js"
