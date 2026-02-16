@@ -14,17 +14,23 @@
   "bin": {
     "google-slides-mcp": "./dist/index.js"
   },
-  "keywords": ["mcp", "google-slides", "model-context-protocol"],
+  "keywords": [
+    "mcp",
+    "google-slides",
+    "model-context-protocol"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@googleapis/slides": "^5.0.1",
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "google-auth-library": "^10.5.0"
+    "google-auth-library": "^10.5.0",
+    "open": "^11.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
+    "@types/open": "^6.1.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",
