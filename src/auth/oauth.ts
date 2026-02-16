@@ -63,10 +63,15 @@ export class OAuthManager {
       this.oauth2Client.setCredentials(tokens);
       const { credentials } = await this.oauth2Client.refreshAccessToken();
 
+      // Validate that we received essential token data
+      if (!credentials.access_token) {
+        throw new Error('Failed to refresh access token: no access token received');
+      }
+
       const newTokens: Tokens = {
-        access_token: credentials.access_token!,
+        access_token: credentials.access_token,
         refresh_token: credentials.refresh_token || tokens.refresh_token,
-        expiry_date: credentials.expiry_date!,
+        expiry_date: credentials.expiry_date || Date.now() + 3600000, // Default 1 hour if not provided
       };
 
       await this.tokenStore.save(newTokens);
@@ -99,30 +104,55 @@ export class OAuthManager {
 
   private async startCallbackServer(): Promise<string> {
     return new Promise((resolve, reject) => {
-      const server = http.createServer(async (req, res) => {
-        if (req.url?.startsWith('/callback')) {
-          const url = new URL(req.url, 'http://localhost:3000');
-          const code = url.searchParams.get('code');
+      let serverClosed = false;
 
-          if (code) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(`
-              <html>
-                <body>
-                  <h1>✅ Authentication Successful!</h1>
-                  <p>You can close this window and return to the terminal.</p>
-                  <script>window.close();</script>
-                </body>
-              </html>
-            `);
-            server.close();
-            resolve(code);
-          } else {
-            res.writeHead(400, { 'Content-Type': 'text/html' });
-            res.end('<h1>❌ Authentication Failed</h1><p>No authorization code received.</p>');
-            server.close();
-            reject(new Error('No authorization code received'));
+      const closeServer = () => {
+        if (!serverClosed) {
+          serverClosed = true;
+          server.close();
+        }
+      };
+
+      const server = http.createServer(async (req, res) => {
+        try {
+          if (req.url?.startsWith('/callback')) {
+            const url = new URL(req.url, 'http://localhost:3000');
+            const code = url.searchParams.get('code');
+
+            if (code) {
+              res.writeHead(200, { 'Content-Type': 'text/html' });
+              res.end(`
+                <html>
+                  <body>
+                    <h1>✅ Authentication Successful!</h1>
+                    <p>You can close this window and return to the terminal.</p>
+                    <script>window.close();</script>
+                  </body>
+                </html>
+              `);
+              closeServer();
+              resolve(code);
+            } else {
+              res.writeHead(400, { 'Content-Type': 'text/html' });
+              res.end('<h1>❌ Authentication Failed</h1><p>No authorization code received.</p>');
+              closeServer();
+              reject(new Error('No authorization code received'));
+            }
           }
+        } catch (error) {
+          // Ensure server is closed on any error during request handling
+          closeServer();
+          reject(error);
+        }
+      });
+
+      // Handle server listen errors (e.g., port already in use)
+      server.on('error', (error: NodeJS.ErrnoException) => {
+        closeServer();
+        if (error.code === 'EADDRINUSE') {
+          reject(new Error('Port 3000 is already in use. Please free the port and try again.'));
+        } else {
+          reject(new Error(`Server error: ${error.message}`));
         }
       });
 
@@ -132,7 +162,7 @@ export class OAuthManager {
 
       // Timeout after 5 minutes
       setTimeout(() => {
-        server.close();
+        closeServer();
         reject(new Error('Authentication timeout after 5 minutes'));
       }, 5 * 60 * 1000);
     });
@@ -141,10 +171,18 @@ export class OAuthManager {
   private async exchangeCodeForTokens(code: string): Promise<void> {
     const { tokens } = await this.oauth2Client.getToken(code);
 
+    // Validate that we received essential token data
+    if (!tokens.access_token) {
+      throw new Error('Failed to exchange code for tokens: no access token received');
+    }
+    if (!tokens.refresh_token) {
+      throw new Error('Failed to exchange code for tokens: no refresh token received');
+    }
+
     const tokenData: Tokens = {
-      access_token: tokens.access_token!,
-      refresh_token: tokens.refresh_token!,
-      expiry_date: tokens.expiry_date!,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date || Date.now() + 3600000, // Default 1 hour if not provided
     };
 
     await this.tokenStore.save(tokenData);
