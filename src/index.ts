@@ -18,6 +18,22 @@ import {
   getPresentationTool,
   GetPresentationParams,
 } from './tools/presentation/index.js';
+import {
+  createSlideTool,
+  CreateSlideParams,
+  deleteSlideTool,
+  DeleteSlideParams,
+  duplicateSlideTool,
+  DuplicateSlideParams,
+} from './tools/slide/index.js';
+import {
+  deleteElementTool,
+  DeleteElementParams,
+} from './tools/element/index.js';
+import {
+  addTextBoxTool,
+  AddTextBoxParams,
+} from './tools/helpers/text.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -113,6 +129,120 @@ async function main() {
             required: ['presentationId'],
           },
         },
+        {
+          name: 'create_slide',
+          description: 'Create a new slide in a presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              insertionIndex: {
+                type: 'number',
+                description: 'Optional zero-based index where the slide should be inserted',
+              },
+            },
+            required: ['presentationId'],
+          },
+        },
+        {
+          name: 'delete_slide',
+          description: 'Delete a slide from a presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide to delete',
+              },
+            },
+            required: ['presentationId', 'slideId'],
+          },
+        },
+        {
+          name: 'duplicate_slide',
+          description: 'Duplicate a slide in a presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide to duplicate',
+              },
+              insertionIndex: {
+                type: 'number',
+                description: 'Optional zero-based index where the duplicated slide should be inserted',
+              },
+            },
+            required: ['presentationId', 'slideId'],
+          },
+        },
+        {
+          name: 'element_delete',
+          description: 'Delete an element (text box, shape, image, etc.) from a slide',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              elementId: {
+                type: 'string',
+                description: 'The ID of the element to delete',
+              },
+            },
+            required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'add_text_box',
+          description: 'Add a text box to a slide with specified content and position',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide',
+              },
+              text: {
+                type: 'string',
+                description: 'The text content',
+              },
+              x: {
+                type: 'number',
+                description: 'X position in points (default: 100)',
+              },
+              y: {
+                type: 'number',
+                description: 'Y position in points (default: 100)',
+              },
+              width: {
+                type: 'number',
+                description: 'Width in points (default: 300)',
+              },
+              height: {
+                type: 'number',
+                description: 'Height in points (default: 50)',
+              },
+            },
+            required: ['presentationId', 'slideId', 'text'],
+          },
+        },
       ],
     };
   });
@@ -152,6 +282,136 @@ async function main() {
         case 'get_presentation': {
           const params = args as unknown as GetPresentationParams;
           const result = await getPresentationTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'create_slide': {
+          const params = args as unknown as CreateSlideParams;
+          const result = await createSlideTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'delete_slide': {
+          const params = args as unknown as DeleteSlideParams;
+          const result = await deleteSlideTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'duplicate_slide': {
+          const params = args as unknown as DuplicateSlideParams;
+          const result = await duplicateSlideTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_delete': {
+          const params = args as unknown as DeleteElementParams;
+          const result = await deleteElementTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'add_text_box': {
+          const params = args as unknown as AddTextBoxParams;
+          const result = await addTextBoxTool(client, params);
 
           if (result.success) {
             return {
