@@ -146,4 +146,41 @@ export class SlidesClient {
 
     throw lastError;
   }
+
+  // Drive API operations (not available in MVP)
+  async listPresentations(): Promise<never> {
+    throw new SlidesAPIError(
+      'listPresentations requires Google Drive API access. ' +
+        'This MVP only supports the Slides API. ' +
+        'Please provide presentation IDs directly.',
+      501, // Not Implemented
+      undefined,
+      false
+    );
+  }
+
+  async deletePresentation(presentationId: string): Promise<never> {
+    throw new SlidesAPIError(
+      'deletePresentation requires Google Drive API access. ' +
+        'This MVP only supports the Slides API. ' +
+        'Please delete presentations through the Google Slides UI.',
+      501,
+      undefined,
+      false
+    );
+  }
+
+  async copyPresentation(
+    presentationId: string,
+    title: string
+  ): Promise<never> {
+    throw new SlidesAPIError(
+      'copyPresentation requires Google Drive API access. ' +
+        'This MVP only supports the Slides API. ' +
+        'As a workaround, create a new presentation and copy content manually.',
+      501,
+      undefined,
+      false
+    );
+  }
 }
