@@ -6,6 +6,7 @@ import {
 } from '../../../src/tools/slide/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
+import { slideGetTool } from '../../../src/tools/slide/index.js';
 
 describe('Slide Tools', () => {
   let mockClient: jest.Mocked<SlidesClient>;
@@ -14,6 +15,7 @@ describe('Slide Tools', () => {
     mockClient = {
       batchUpdate: jest.fn(),
       getPresentation: jest.fn(),
+      getSlide: jest.fn(),
     } as any;
   });
 
@@ -236,6 +238,102 @@ describe('Slide Tools', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.message).toContain('No duplicated slide ID');
+      }
+    });
+  });
+
+  describe('slideGetTool', () => {
+    const mockSlide = {
+      objectId: 'slide-abc',
+      pageElements: [
+        {
+          objectId: 'elem-1',
+          size: {
+            width: { magnitude: 3000000, unit: 'EMU' },
+            height: { magnitude: 1500000, unit: 'EMU' },
+          },
+          transform: { translateX: 1270000, translateY: 2540000 },
+          shape: {
+            text: {
+              textElements: [
+                { textRun: { content: 'Hello World' } },
+              ],
+            },
+          },
+        },
+        {
+          objectId: 'elem-2',
+          size: {
+            width: { magnitude: 2000000, unit: 'EMU' },
+            height: { magnitude: 1000000, unit: 'EMU' },
+          },
+          transform: { translateX: 0, translateY: 0 },
+          image: { contentUrl: 'https://example.com/image.png' },
+        },
+      ],
+    };
+
+    it('should return summary of elements by default', async () => {
+      mockClient.getSlide.mockResolvedValue(mockSlide);
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.message).toContain('slide-abc');
+        expect(result.message).toContain('elem-1');
+        expect(result.message).toContain('SHAPE');
+        expect(result.message).toContain('Hello World');
+        expect(result.message).toContain('elem-2');
+        expect(result.message).toContain('IMAGE');
+        expect(result.data?.elements).toHaveLength(2);
+      }
+    });
+
+    it('should include raw JSON when detailed is true', async () => {
+      mockClient.getSlide.mockResolvedValue(mockSlide);
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        detailed: true,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.message).toContain('elem-1');
+        expect(result.message).toContain('"objectId"');
+      }
+    });
+
+    it('should handle empty slides', async () => {
+      mockClient.getSlide.mockResolvedValue({ objectId: 'slide-empty', pageElements: [] });
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-empty',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.message).toContain('0 elements');
+      }
+    });
+
+    it('should handle API errors (slide not found)', async () => {
+      mockClient.getSlide.mockRejectedValue(new SlidesAPIError('Slide not found', 404));
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'nonexistent',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
       }
     });
   });

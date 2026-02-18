@@ -145,3 +145,5 @@ export async function duplicateSlideTool(
     return createErrorResponse('api', error.message);
   }
 }
+
+export { slideGetTool, SlideGetParams } from './get.js';
