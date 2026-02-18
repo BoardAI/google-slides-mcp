@@ -132,6 +132,49 @@ Duplicate a slide within a presentation.
 
 ---
 
+### slide_get
+
+Get all elements on a slide with their IDs, types, positions, and text content.
+
+**Parameters:**
+- `presentationId` (string, required): The ID of the presentation
+- `slideId` (string, required): The ID of the slide
+- `detailed` (boolean, optional): When `true`, appends full raw API JSON for all elements (default: `false`)
+
+**Returns (summary mode):**
+```
+Slide: slide_abc (3 elements)
+
+1. SHAPE [elem_001]
+   Position: 100pt, 50pt  Size: 400pt × 80pt
+   Text: "Welcome to Q4 Review"
+
+2. IMAGE [elem_002]
+   Position: 50pt, 200pt  Size: 300pt × 200pt
+   URL: https://lh3.googleusercontent.com/...
+
+3. TABLE [elem_003]
+   Position: 50pt, 420pt  Size: 620pt × 100pt
+   3 rows × 4 columns
+```
+
+**Element types reported:** SHAPE, IMAGE, TABLE, VIDEO, LINE, WORD ART, SHEETS CHART
+
+**Example:**
+```typescript
+{
+  "name": "slide_get",
+  "arguments": {
+    "presentationId": "abc123",
+    "slideId": "slide_xyz"
+  }
+}
+```
+
+**Tip:** Use `slide_get` after `get_presentation` to discover element IDs before editing or deleting.
+
+---
+
 ## Element Tools
 
 ### element_delete
@@ -144,6 +187,40 @@ Delete an element (text box, shape, image, etc.) from a slide.
 
 **Returns:**
 Success message
+
+---
+
+### element_get
+
+Get details of a specific element by ID. Searches all slides in the presentation — no `slideId` needed.
+
+**Parameters:**
+- `presentationId` (string, required): The ID of the presentation
+- `elementId` (string, required): The ID of the element to retrieve
+- `detailed` (boolean, optional): When `true`, appends full raw API JSON for the element (default: `false`)
+
+**Returns (summary mode):**
+```
+SHAPE [elem_001]
+   Position: 100pt, 50pt  Size: 400pt × 80pt
+   Text: "Welcome to Q4 Review"
+```
+
+**Returns (detailed mode):** Same summary, plus the complete raw `PageElement` JSON from the Google Slides API.
+
+**Example:**
+```typescript
+{
+  "name": "element_get",
+  "arguments": {
+    "presentationId": "abc123",
+    "elementId": "elem_001",
+    "detailed": true
+  }
+}
+```
+
+**Tip:** Use `element_get` with `detailed: true` to inspect full styling properties (fonts, colors, transforms) before issuing an update.
 
 ---
 
@@ -239,12 +316,16 @@ Note: Server automatically retries with exponential backoff
 
 ## Best Practices
 
-1. **Always get presentation first**: Use `get_presentation` to understand structure before making changes
+1. **Use the drill-down workflow**: Start broad and narrow down before editing:
+   - `get_presentation` → discover slide IDs and count
+   - `slide_get` → discover element IDs, types, and positions on a specific slide
+   - `element_get` (with `detailed: true`) → inspect full properties of one element
+   - Then issue your edit or delete
 
-2. **Use helper tools**: Prefer `add_text_box` over low-level `element_create` for common operations
+2. **Use helper tools**: Prefer `add_text_box` over low-level element creation for common operations
 
-3. **Batch operations**: Group related changes together when possible (future feature)
+3. **Handle errors gracefully**: Check for `success: false` and handle retryable errors
 
-4. **Handle errors gracefully**: Check for `success: false` and handle retryable errors
+4. **Keep IDs**: Store presentation/slide/element IDs for subsequent operations — they are stable for the lifetime of the object
 
-5. **Keep IDs**: Store presentation/slide/element IDs for subsequent operations
+5. **Read before writing**: Always call `slide_get` or `element_get` before `element_delete` or future update tools to confirm you have the right element ID

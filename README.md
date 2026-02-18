@@ -6,7 +6,8 @@ A Model Context Protocol (MCP) server that provides comprehensive Google Slides 
 
 - 🔐 **OAuth 2.0 Authentication** - Secure user consent flow with automatic token refresh
 - 📊 **Presentation Management** - Create and retrieve presentations
-- 📄 **Slide Operations** - Create, delete, and duplicate slides
+- 📄 **Slide Operations** - Create, delete, duplicate, and inspect slides
+- 🔍 **Element Inspection** - Read element IDs, types, positions, and content
 - ✏️ **Element Manipulation** - Add text boxes, delete elements
 - 🎨 **Helper Tools** - Convenient shortcuts for common operations
 - 🔄 **Smart Retry Logic** - Automatic retry with exponential backoff for rate limits
@@ -78,9 +79,11 @@ Restart Claude Desktop. You'll now have access to Google Slides tools!
 - `create_slide` - Add new slide
 - `delete_slide` - Remove slide
 - `duplicate_slide` - Copy slide
+- `slide_get` - List all elements on a slide (ID, type, position, text)
 
 ### Element Tools
 - `element_delete` - Delete any element
+- `element_get` - Inspect a single element by ID (position, size, content)
 - `add_text_box` - Add text box with positioning
 
 See [API Documentation](docs/API.md) for detailed tool parameters.
