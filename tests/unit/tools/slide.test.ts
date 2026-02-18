@@ -336,5 +336,62 @@ describe('Slide Tools', () => {
         expect(result.error.type).toBe('api');
       }
     });
+
+    it('should format TABLE, VIDEO, LINE, WORD ART, and SHEETS CHART elements', async () => {
+      mockClient.getSlide.mockResolvedValue({
+        objectId: 'slide-x',
+        pageElements: [
+          {
+            objectId: 'tbl-1',
+            size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } },
+            transform: { translateX: 0, translateY: 0 },
+            table: { rows: 3, columns: 4 },
+          },
+          {
+            objectId: 'vid-1',
+            size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } },
+            transform: { translateX: 0, translateY: 0 },
+            video: { id: 'yt-abc123' },
+          },
+          {
+            objectId: 'line-1',
+            size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } },
+            transform: { translateX: 0, translateY: 0 },
+            line: {},
+          },
+          {
+            objectId: 'art-1',
+            size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } },
+            transform: { translateX: 0, translateY: 0 },
+            wordArt: { renderedText: 'Fancy' },
+          },
+          {
+            objectId: 'chart-1',
+            size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } },
+            transform: { translateX: 0, translateY: 0 },
+            sheetsChart: { spreadsheetId: 'sheet-xyz' },
+          },
+        ],
+      });
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-x',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.message).toContain('TABLE');
+        expect(result.message).toContain('3 rows × 4 columns');
+        expect(result.message).toContain('VIDEO');
+        expect(result.message).toContain('yt-abc123');
+        expect(result.message).toContain('LINE');
+        expect(result.message).toContain('WORD ART');
+        expect(result.message).toContain('Fancy');
+        expect(result.message).toContain('SHEETS CHART');
+        expect(result.message).toContain('sheet-xyz');
+        expect(result.data?.elements).toHaveLength(5);
+      }
+    });
   });
 });
