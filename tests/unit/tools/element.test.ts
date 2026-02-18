@@ -104,6 +104,23 @@ describe('Element Tools', () => {
       }
     });
 
+    it('should handle element not found in presentation', async () => {
+      mockClient.getElement.mockRejectedValue(
+        new SlidesAPIError('Element stale-id not found in presentation pres-123', 404)
+      );
+
+      const result = await elementGetTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'stale-id',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+        expect(result.error.message).toContain('not found');
+      }
+    });
+
     it('should format TABLE, VIDEO, LINE, WORD ART, and SHEETS CHART elements', async () => {
       const elements = [
         { objectId: 'tbl-1', size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } }, transform: { translateX: 0, translateY: 0 }, table: { rows: 2, columns: 3 } },
@@ -136,6 +153,33 @@ describe('Element Tools', () => {
       if (imgResult.success) {
         expect(imgResult.message).toContain('IMAGE');
         expect(imgResult.message).toContain('https://example.com/img.png');
+      }
+
+      // Verify video specifically
+      mockClient.getElement.mockResolvedValue(elements.find(e => e.objectId === 'vid-1') as any);
+      const vidResult = await elementGetTool(mockClient, { presentationId: 'pres-123', elementId: 'vid-1' });
+      expect(vidResult.success).toBe(true);
+      if (vidResult.success) {
+        expect(vidResult.message).toContain('VIDEO');
+        expect(vidResult.message).toContain('Video ID: yt-abc123');
+      }
+
+      // Verify word art specifically
+      mockClient.getElement.mockResolvedValue(elements.find(e => e.objectId === 'art-1') as any);
+      const artResult = await elementGetTool(mockClient, { presentationId: 'pres-123', elementId: 'art-1' });
+      expect(artResult.success).toBe(true);
+      if (artResult.success) {
+        expect(artResult.message).toContain('WORD ART');
+        expect(artResult.message).toContain('Fancy');
+      }
+
+      // Verify sheets chart specifically
+      mockClient.getElement.mockResolvedValue(elements.find(e => e.objectId === 'chart-1') as any);
+      const chartResult = await elementGetTool(mockClient, { presentationId: 'pres-123', elementId: 'chart-1' });
+      expect(chartResult.success).toBe(true);
+      if (chartResult.success) {
+        expect(chartResult.message).toContain('SHEETS CHART');
+        expect(chartResult.message).toContain('sheet-xyz');
       }
     });
   });

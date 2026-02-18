@@ -17,7 +17,7 @@ function emuToPoints(emu: number | null | undefined): number {
   return Math.round((emu ?? 0) / 12700);
 }
 
-function formatElementSummary(el: slides_v1.Schema$PageElement): string {
+function formatElementSummary(el: slides_v1.Schema$PageElement, index?: number): string {
   const id = el.objectId ?? 'unknown';
   const x = emuToPoints(el.transform?.translateX);
   const y = emuToPoints(el.transform?.translateY);
@@ -56,7 +56,8 @@ function formatElementSummary(el: slides_v1.Schema$PageElement): string {
     if (el.sheetsChart.spreadsheetId) extra = `\n   Sheet: ${el.sheetsChart.spreadsheetId}`;
   }
 
-  return `${type} [${id}]\n   ${position}${extra}`;
+  const prefix = index !== undefined ? `${index}. ` : '';
+  return `${prefix}${type} [${id}]\n   ${position}${extra}`;
 }
 
 export async function elementGetTool(
