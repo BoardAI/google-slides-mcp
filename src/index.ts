@@ -25,10 +25,14 @@ import {
   DeleteSlideParams,
   duplicateSlideTool,
   DuplicateSlideParams,
+  slideGetTool,
+  SlideGetParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
   DeleteElementParams,
+  elementGetTool,
+  ElementGetParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -188,6 +192,28 @@ async function main() {
           },
         },
         {
+          name: 'slide_get',
+          description: 'Get all elements on a slide with their IDs, types, positions, and text content',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide',
+              },
+              detailed: {
+                type: 'boolean',
+                description: 'When true, includes full raw API properties for each element (default: false)',
+              },
+            },
+            required: ['presentationId', 'slideId'],
+          },
+        },
+        {
           name: 'element_delete',
           description: 'Delete an element (text box, shape, image, etc.) from a slide',
           inputSchema: {
@@ -200,6 +226,28 @@ async function main() {
               elementId: {
                 type: 'string',
                 description: 'The ID of the element to delete',
+              },
+            },
+            required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'element_get',
+          description: 'Get details of a specific element by ID (position, size, type, text content)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              elementId: {
+                type: 'string',
+                description: 'The ID of the element to retrieve',
+              },
+              detailed: {
+                type: 'boolean',
+                description: 'When true, includes full raw API properties (default: false)',
               },
             },
             required: ['presentationId', 'elementId'],
@@ -383,6 +431,20 @@ async function main() {
           }
         }
 
+        case 'slide_get': {
+          const params = args as unknown as SlideGetParams;
+          const result = await slideGetTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
         case 'element_delete': {
           const params = args as unknown as DeleteElementParams;
           const result = await deleteElementTool(client, params);
@@ -404,6 +466,20 @@ async function main() {
                   text: `Error: ${result.error.message}`,
                 },
               ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_get': {
+          const params = args as unknown as ElementGetParams;
+          const result = await elementGetTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
               isError: true,
             };
           }
