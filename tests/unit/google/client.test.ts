@@ -53,6 +53,16 @@ describe('SlidesClient', () => {
       await expect(slidesClient.getSlide('pres-123', 'slide-missing'))
         .rejects.toMatchObject({ code: 404 });
     });
+
+    it('should throw 404 when presentation has no slides', async () => {
+      jest.spyOn(slidesClient, 'getPresentation').mockResolvedValue({
+        presentationId: 'pres-123',
+        slides: undefined,
+      } as any);
+
+      await expect(slidesClient.getSlide('pres-123', 'slide-missing'))
+        .rejects.toMatchObject({ code: 404 });
+    });
   });
 
   describe('getElement', () => {
@@ -74,6 +84,16 @@ describe('SlidesClient', () => {
       jest.spyOn(slidesClient, 'getPresentation').mockResolvedValue({
         presentationId: 'pres-123',
         slides: [{ objectId: 'slide-1', pageElements: [{ objectId: 'elem-other' }] }],
+      } as any);
+
+      await expect(slidesClient.getElement('pres-123', 'elem-missing'))
+        .rejects.toMatchObject({ code: 404 });
+    });
+
+    it('should throw 404 when presentation has no slides', async () => {
+      jest.spyOn(slidesClient, 'getPresentation').mockResolvedValue({
+        presentationId: 'pres-123',
+        slides: undefined,
       } as any);
 
       await expect(slidesClient.getElement('pres-123', 'elem-missing'))
