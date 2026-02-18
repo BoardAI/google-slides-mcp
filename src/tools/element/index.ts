@@ -37,3 +37,5 @@ export async function deleteElementTool(
     return createErrorResponse('api', error.message);
   }
 }
+
+export { elementGetTool, ElementGetParams } from './get.js';
