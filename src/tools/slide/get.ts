@@ -75,7 +75,7 @@ export async function slideGetTool(
       message += '\n\n' + summaries.join('\n\n');
     }
 
-    if (params.detailed && count > 0) {
+    if (params.detailed) {
       message += '\n\n--- Raw Data ---\n' + JSON.stringify(elements, null, 2);
     }
 
