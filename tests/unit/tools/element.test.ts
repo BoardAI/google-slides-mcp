@@ -111,6 +111,7 @@ describe('Element Tools', () => {
         { objectId: 'line-1', size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } }, transform: { translateX: 0, translateY: 0 }, line: {} },
         { objectId: 'art-1', size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } }, transform: { translateX: 0, translateY: 0 }, wordArt: { renderedText: 'Fancy' } },
         { objectId: 'chart-1', size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } }, transform: { translateX: 0, translateY: 0 }, sheetsChart: { spreadsheetId: 'sheet-xyz' } },
+        { objectId: 'img-1', size: { width: { magnitude: 0, unit: 'EMU' }, height: { magnitude: 0, unit: 'EMU' } }, transform: { translateX: 0, translateY: 0 }, image: { contentUrl: 'https://example.com/img.png' } },
       ];
 
       for (const el of elements) {
@@ -126,6 +127,15 @@ describe('Element Tools', () => {
       if (tableResult.success) {
         expect(tableResult.message).toContain('TABLE');
         expect(tableResult.message).toContain('2 rows × 3 columns');
+      }
+
+      // Verify image specifically
+      mockClient.getElement.mockResolvedValue(elements.find(e => e.objectId === 'img-1') as any);
+      const imgResult = await elementGetTool(mockClient, { presentationId: 'pres-123', elementId: 'img-1' });
+      expect(imgResult.success).toBe(true);
+      if (imgResult.success) {
+        expect(imgResult.message).toContain('IMAGE');
+        expect(imgResult.message).toContain('https://example.com/img.png');
       }
     });
   });
