@@ -147,6 +147,30 @@ export class SlidesClient {
     throw lastError;
   }
 
+  async getSlide(presentationId: string, slideId: string): Promise<Slide> {
+    const presentation = await this.getPresentation(presentationId);
+    const slide = presentation.slides?.find(s => s.objectId === slideId);
+    if (!slide) {
+      throw new SlidesAPIError(
+        `Slide ${slideId} not found in presentation ${presentationId}`,
+        404
+      );
+    }
+    return slide;
+  }
+
+  async getElement(presentationId: string, elementId: string): Promise<slides_v1.Schema$PageElement> {
+    const presentation = await this.getPresentation(presentationId);
+    for (const slide of presentation.slides ?? []) {
+      const element = slide.pageElements?.find(e => e.objectId === elementId);
+      if (element) return element;
+    }
+    throw new SlidesAPIError(
+      `Element ${elementId} not found in presentation ${presentationId}`,
+      404
+    );
+  }
+
   // Drive API operations (not available in MVP)
   async listPresentations(): Promise<never> {
     throw new SlidesAPIError(
