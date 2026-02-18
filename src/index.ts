@@ -436,10 +436,22 @@ async function main() {
           const result = await slideGetTool(client, params);
 
           if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
           } else {
             return {
-              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
               isError: true,
             };
           }
@@ -476,10 +488,22 @@ async function main() {
           const result = await elementGetTool(client, params);
 
           if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
           } else {
             return {
-              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
               isError: true,
             };
           }
