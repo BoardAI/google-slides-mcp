@@ -45,3 +45,5 @@ export { elementAddShapeTool, ElementAddShapeParams } from './add-shape.js';
 export { elementStyleTool, ElementStyleParams } from './style.js';
 export { elementFormatTextTool, ElementFormatTextParams } from './format-text.js';
 export { elementFindTool, ElementFindParams } from './find.js';
+export { elementReplaceImageTool, ElementReplaceImageParams } from './replace-image.js';
+export { elementDuplicateTool, ElementDuplicateParams } from './duplicate.js';

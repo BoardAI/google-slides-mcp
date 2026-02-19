@@ -39,6 +39,10 @@ import {
   SlideSetBackgroundParams,
   slideThumbnailTool,
   SlideThumbnailParams,
+  slideGetNotesTool,
+  SlideGetNotesParams,
+  slideSetNotesTool,
+  SlideSetNotesParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
@@ -57,6 +61,10 @@ import {
   ElementFormatTextParams,
   elementFindTool,
   ElementFindParams,
+  elementReplaceImageTool,
+  ElementReplaceImageParams,
+  elementDuplicateTool,
+  ElementDuplicateParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -579,6 +587,63 @@ async function main() {
               },
             },
             required: ['presentationId'],
+          },
+        },
+        {
+          name: 'element_duplicate',
+          description: 'Duplicate an existing element on a slide, creating an identical copy with a new element ID',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementId: { type: 'string', description: 'The ID of the element to duplicate' },
+            },
+            required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'slide_get_notes',
+          description: 'Get the speaker notes text for a slide. Identify the slide by slideId or slideIndex (0-based).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              slideId: { type: 'string', description: 'The ID of the slide (provide this or slideIndex)' },
+              slideIndex: { type: 'integer', description: 'Zero-based slide position (provide this or slideId)', minimum: 0 },
+            },
+            required: ['presentationId'],
+          },
+        },
+        {
+          name: 'slide_set_notes',
+          description: 'Set (replace) the speaker notes text for a slide. Pass an empty string to clear notes.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              slideId: { type: 'string', description: 'The ID of the slide (provide this or slideIndex)' },
+              slideIndex: { type: 'integer', description: 'Zero-based slide position (provide this or slideId)', minimum: 0 },
+              text: { type: 'string', description: 'New speaker notes text. Pass empty string to clear.' },
+            },
+            required: ['presentationId', 'text'],
+          },
+        },
+        {
+          name: 'element_replace_image',
+          description: 'Replace the image content of an existing image element with a new URL, preserving its position, size, and element ID',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementId: { type: 'string', description: 'The ID of the image element to update' },
+              url: { type: 'string', description: 'Public HTTPS URL of the replacement image' },
+              imageReplaceMethod: {
+                type: 'string',
+                enum: ['CENTER_CROP'],
+                description: 'How to fit the new image: CENTER_CROP scales and crops to fill the frame. Omit to preserve aspect ratio.',
+              },
+            },
+            required: ['presentationId', 'elementId', 'url'],
           },
         },
         {
@@ -1230,6 +1295,46 @@ async function main() {
               content: [{ type: 'text', text: `Error: ${result.error.message}` }],
               isError: true,
             };
+          }
+        }
+
+        case 'element_replace_image': {
+          const params = args as unknown as ElementReplaceImageParams;
+          const result = await elementReplaceImageTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'element_duplicate': {
+          const params = args as unknown as ElementDuplicateParams;
+          const result = await elementDuplicateTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'slide_get_notes': {
+          const params = args as unknown as SlideGetNotesParams;
+          const result = await slideGetNotesTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'slide_set_notes': {
+          const params = args as unknown as SlideSetNotesParams;
+          const result = await slideSetNotesTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
           }
         }
 
