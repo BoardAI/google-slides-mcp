@@ -49,3 +49,4 @@ export { elementReplaceImageTool, ElementReplaceImageParams } from './replace-im
 export { elementDuplicateTool, ElementDuplicateParams } from './duplicate.js';
 export { elementZOrderTool, ElementZOrderParams, ZOrderOperation } from './z-order.js';
 export { elementGroupTool, ElementGroupParams, elementUngroupTool, ElementUngroupParams } from './group.js';
+export { elementSetLinkTool, ElementSetLinkParams } from './set-link.js';

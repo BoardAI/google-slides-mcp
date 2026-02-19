@@ -73,6 +73,8 @@ import {
   ElementGroupParams,
   elementUngroupTool,
   ElementUngroupParams,
+  elementSetLinkTool,
+  ElementSetLinkParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -97,6 +99,8 @@ import {
   tableDeleteColumnsTool,
   tableSetColumnWidthTool,
   tableMergeCellsTool,
+  tableUnmergeCellsTool,
+  TableUnmergeCellsParams,
   TableSetCellParams,
   TableFormatCellTextParams,
   TableStyleCellParams,
@@ -610,6 +614,21 @@ async function main() {
           },
         },
         {
+          name: 'element_set_link',
+          description: 'Add or remove a hyperlink on an element or a text range within it. Pass an empty string for url to remove an existing link.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementId: { type: 'string', description: 'The ID of the element' },
+              url: { type: 'string', description: 'HTTPS URL to link to, e.g. "https://example.com". Pass empty string to remove the link.' },
+              startIndex: { type: 'integer', description: 'Start of character range (inclusive, 0-based). Omit to apply to all text.', minimum: 0 },
+              endIndex: { type: 'integer', description: 'End of character range (exclusive). Omit to apply to all text.', minimum: 1 },
+            },
+            required: ['presentationId', 'elementId', 'url'],
+          },
+        },
+        {
           name: 'element_z_order',
           description: 'Change the z-order (layering) of one or more elements on a slide: bring to front, send to back, move forward one step, or move backward one step',
           inputSchema: {
@@ -962,6 +981,22 @@ async function main() {
               column: { type: 'integer', description: 'Top-left column index (0-based)', minimum: 0 },
               rowSpan: { type: 'integer', description: 'Number of rows to merge', minimum: 1 },
               columnSpan: { type: 'integer', description: 'Number of columns to merge', minimum: 1 },
+            },
+            required: ['presentationId', 'tableId', 'row', 'column', 'rowSpan', 'columnSpan'],
+          },
+        },
+        {
+          name: 'table_unmerge_cells',
+          description: 'Unmerge a previously merged range of table cells, splitting them back into individual cells',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              row: { type: 'integer', description: 'Top-left row index of the merged range (0-based)', minimum: 0 },
+              column: { type: 'integer', description: 'Top-left column index of the merged range (0-based)', minimum: 0 },
+              rowSpan: { type: 'integer', description: 'Number of rows in the merged range', minimum: 1 },
+              columnSpan: { type: 'integer', description: 'Number of columns in the merged range', minimum: 1 },
             },
             required: ['presentationId', 'tableId', 'row', 'column', 'rowSpan', 'columnSpan'],
           },
@@ -1404,6 +1439,16 @@ async function main() {
           }
         }
 
+        case 'element_set_link': {
+          const params = args as unknown as ElementSetLinkParams;
+          const result = await elementSetLinkTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
         case 'element_z_order': {
           const params = args as unknown as ElementZOrderParams;
           const result = await elementZOrderTool(client, params);
@@ -1575,6 +1620,16 @@ async function main() {
         case 'table_set_column_width': {
           const params = args as unknown as TableSetColumnWidthParams;
           const result = await tableSetColumnWidthTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_unmerge_cells': {
+          const params = args as unknown as TableUnmergeCellsParams;
+          const result = await tableUnmergeCellsTool(client, params);
           if (result.success) {
             return { content: [{ type: 'text', text: result.message }] };
           } else {
