@@ -1,5 +1,15 @@
 import { slides_v1 } from '@googleapis/slides';
 
+export const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+
+export function parseHexColor(hex: string): { red: number; green: number; blue: number } {
+  return {
+    red: parseInt(hex.slice(1, 3), 16) / 255,
+    green: parseInt(hex.slice(3, 5), 16) / 255,
+    blue: parseInt(hex.slice(5, 7), 16) / 255,
+  };
+}
+
 export function emuToPoints(emu: number | null | undefined): number {
   return Math.round((emu ?? 0) / 12700);
 }

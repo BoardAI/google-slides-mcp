@@ -1,0 +1,151 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { addTextBoxTool } from '../../../src/tools/helpers/text.js';
+import { addImageTool } from '../../../src/tools/helpers/image.js';
+import { SlidesClient } from '../../../src/google/client.js';
+import { SlidesAPIError } from '../../../src/google/types.js';
+
+describe('Helper Tools', () => {
+  let mockClient: jest.Mocked<SlidesClient>;
+
+  beforeEach(() => {
+    mockClient = {
+      batchUpdate: jest.fn(),
+    } as any;
+  });
+
+  describe('addTextBoxTool', () => {
+    it('creates a TEXT_BOX shape then inserts text in one batchUpdate', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}, {}] });
+
+      const result = await addTextBoxTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        text: 'Hello world',
+      });
+
+      const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+      expect(requests).toHaveLength(2);
+      expect(requests[0].createShape.shapeType).toBe('TEXT_BOX');
+      expect(requests[0].createShape.elementProperties.pageObjectId).toBe('slide-abc');
+      expect(requests[1].insertText.text).toBe('Hello world');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBeDefined();
+        expect(result.data?.text).toBe('Hello world');
+      }
+    });
+
+    it('converts x, y, width, height from points to EMU', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}, {}] });
+
+      await addTextBoxTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        text: 'Hello',
+        x: 50,
+        y: 75,
+        width: 200,
+        height: 100,
+      });
+
+      const EMU = 12700;
+      const createShape = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0].createShape;
+      expect(createShape.elementProperties.transform.translateX).toBe(50 * EMU);
+      expect(createShape.elementProperties.transform.translateY).toBe(75 * EMU);
+      expect(createShape.elementProperties.size.width.magnitude).toBe(200 * EMU);
+      expect(createShape.elementProperties.size.height.magnitude).toBe(100 * EMU);
+    });
+  });
+
+  describe('addImageTool', () => {
+    it('creates image from HTTPS URL with correct pageObjectId', async () => {
+      mockClient.batchUpdate.mockResolvedValue({
+        replies: [{ createImage: { objectId: 'image_123' } }],
+      });
+
+      const result = await addImageTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        url: 'https://example.com/photo.png',
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.createImage.url).toBe('https://example.com/photo.png');
+      expect(request.createImage.elementProperties.pageObjectId).toBe('slide-abc');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBeDefined();
+        expect(result.data?.url).toBe('https://example.com/photo.png');
+      }
+    });
+
+    it('converts x, y, width, height from points to EMU in elementProperties', async () => {
+      mockClient.batchUpdate.mockResolvedValue({
+        replies: [{ createImage: { objectId: 'image_456' } }],
+      });
+
+      await addImageTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        url: 'https://example.com/photo.png',
+        x: 50,
+        y: 100,
+        width: 300,
+        height: 200,
+      });
+
+      const EMU = 12700;
+      const props = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0].createImage.elementProperties;
+      expect(props.transform.translateX).toBe(50 * EMU);
+      expect(props.transform.translateY).toBe(100 * EMU);
+      expect(props.size.width.magnitude).toBe(300 * EMU);
+      expect(props.size.height.magnitude).toBe(200 * EMU);
+    });
+
+    it('rejects non-HTTPS URL without calling the API', async () => {
+      const result = await addImageTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        url: 'http://example.com/photo.png',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('https');
+      }
+    });
+
+    it('rejects empty URL without calling the API', async () => {
+      const result = await addImageTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        url: '',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(
+        new SlidesAPIError('Invalid image URL or image could not be fetched', 400)
+      );
+
+      const result = await addImageTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        url: 'https://example.com/private.png',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+      }
+    });
+  });
+});

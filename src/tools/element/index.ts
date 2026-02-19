@@ -41,3 +41,5 @@ export async function deleteElementTool(
 export { elementGetTool, ElementGetParams } from './get.js';
 export { elementUpdateTextTool, ElementUpdateTextParams } from './update-text.js';
 export { elementMoveResizeTool, ElementMoveResizeParams } from './move-resize.js';
+export { elementAddShapeTool, ElementAddShapeParams } from './add-shape.js';
+export { elementStyleTool, ElementStyleParams } from './style.js';

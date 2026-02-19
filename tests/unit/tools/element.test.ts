@@ -3,6 +3,8 @@ import { elementGetTool } from '../../../src/tools/element/index.js';
 import { deleteElementTool } from '../../../src/tools/element/index.js';
 import { elementUpdateTextTool } from '../../../src/tools/element/index.js';
 import { elementMoveResizeTool } from '../../../src/tools/element/index.js';
+import { elementAddShapeTool } from '../../../src/tools/element/index.js';
+import { elementStyleTool } from '../../../src/tools/element/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
 
@@ -427,6 +429,202 @@ describe('Element Tools', () => {
       if (!result.success) {
         expect(result.error.type).toBe('validation');
         expect(result.error.message).toContain('zero intrinsic width');
+      }
+    });
+  });
+
+  describe('elementAddShapeTool', () => {
+    it('creates a RECTANGLE with default position and size', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{ createShape: { objectId: 'shape_123' } }] });
+
+      const result = await elementAddShapeTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        shapeType: 'RECTANGLE',
+      });
+
+      const call = mockClient.batchUpdate.mock.calls[0];
+      const request = (call[1] as any[])[0];
+      expect(request.createShape.shapeType).toBe('RECTANGLE');
+      expect(request.createShape.elementProperties.pageObjectId).toBe('slide-abc');
+      expect(request.createShape.elementProperties.size.width.unit).toBe('EMU');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.shapeType).toBe('RECTANGLE');
+        expect(result.data?.elementId).toBeDefined();
+      }
+    });
+
+    it('creates an ELLIPSE with explicit position and size in points', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{ createShape: { objectId: 'shape_456' } }] });
+
+      const result = await elementAddShapeTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        shapeType: 'ELLIPSE',
+        x: 50,
+        y: 100,
+        width: 200,
+        height: 150,
+      });
+
+      const call = mockClient.batchUpdate.mock.calls[0];
+      const request = (call[1] as any[])[0];
+      const EMU = 12700;
+      expect(request.createShape.shapeType).toBe('ELLIPSE');
+      expect(request.createShape.elementProperties.transform.translateX).toBe(50 * EMU);
+      expect(request.createShape.elementProperties.transform.translateY).toBe(100 * EMU);
+      expect(request.createShape.elementProperties.size.width.magnitude).toBe(200 * EMU);
+      expect(request.createShape.elementProperties.size.height.magnitude).toBe(150 * EMU);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects an unknown shape type', async () => {
+      const result = await elementAddShapeTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        shapeType: 'BANANA' as any,
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('BANANA');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(new SlidesAPIError('Slide not found', 404));
+
+      const result = await elementAddShapeTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-missing',
+        shapeType: 'RECTANGLE',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+      }
+    });
+  });
+
+  describe('elementStyleTool', () => {
+    it('sets fill color — sends updateShapeProperties with correct rgbColor and fields mask', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        fillColor: '#FF0000',
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.updateShapeProperties.objectId).toBe('elem-abc');
+      expect(request.updateShapeProperties.shapeProperties.shapeBackgroundFill.solidFill.color.rgbColor).toEqual({
+        red: 1, green: 0, blue: 0,
+      });
+      expect(request.updateShapeProperties.fields).toContain('shapeBackgroundFill.solidFill');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBe('elem-abc');
+      }
+    });
+
+    it('sets border color — sends outline.outlineFill.solidFill in request and fields mask', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        borderColor: '#0000FF',
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.updateShapeProperties.shapeProperties.outline.outlineFill.solidFill.color.rgbColor).toEqual({
+        red: 0, green: 0, blue: 1,
+      });
+      expect(request.updateShapeProperties.fields).toContain('outline.outlineFill.solidFill');
+      expect(result.success).toBe(true);
+    });
+
+    it('sets border width in points — sends outline.weight in EMU', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        borderWidth: 2,
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.updateShapeProperties.shapeProperties.outline.weight).toEqual({
+        magnitude: 2 * 12700,
+        unit: 'EMU',
+      });
+      expect(request.updateShapeProperties.fields).toContain('outline.weight');
+      expect(result.success).toBe(true);
+    });
+
+    it('combines all three — merged fields mask includes all three paths', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        fillColor: '#00FF00',
+        borderColor: '#FF0000',
+        borderWidth: 3,
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      const fields: string = request.updateShapeProperties.fields;
+      expect(fields).toContain('shapeBackgroundFill.solidFill');
+      expect(fields).toContain('outline.outlineFill.solidFill');
+      expect(fields).toContain('outline.weight');
+    });
+
+    it('rejects non-hex color string without calling API', async () => {
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        fillColor: 'red',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('red');
+      }
+    });
+
+    it('rejects when no style params are provided', async () => {
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(new SlidesAPIError('Element not found', 404));
+
+      const result = await elementStyleTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-missing',
+        fillColor: '#FF0000',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
       }
     });
   });
