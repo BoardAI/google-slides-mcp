@@ -19,7 +19,7 @@ This document explains how to keep your local development, GitHub, and npm regis
 
 ## The Three Environments
 
-### 1. Local Development (`~/Development/mcp-servers/google-slides/`)
+### 1. Local Development (`~/Development/google-slides/`)
 
 **Purpose:** Active development and testing
 
@@ -35,7 +35,7 @@ This document explains how to keep your local development, GitHub, and npm regis
   "mcpServers": {
     "google-slides-dev": {
       "command": "node",
-      "args": ["/Users/michaelpolansky/Development/mcp-servers/google-slides/dist/index.js"]
+      "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"]
     }
   }
 }
@@ -184,7 +184,7 @@ git pull origin main
 {
   "google-slides-dev": {
     "command": "node",
-    "args": ["/Users/michaelpolansky/Development/mcp-servers/google-slides/dist/index.js"]
+    "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"]
   }
 }
 ```
@@ -210,7 +210,7 @@ git pull origin main
 {
   "google-slides-dev": {
     "command": "node",
-    "args": ["/Users/michaelpolansky/Development/mcp-servers/google-slides/dist/index.js"],
+    "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"],
     "description": "Development version"
   },
   "google-slides": {
