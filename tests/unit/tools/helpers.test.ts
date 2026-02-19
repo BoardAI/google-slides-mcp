@@ -1,6 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { addTextBoxTool } from '../../../src/tools/helpers/text.js';
 import { addImageTool } from '../../../src/tools/helpers/image.js';
+import { addTableTool } from '../../../src/tools/helpers/table.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
 
@@ -140,6 +141,126 @@ describe('Helper Tools', () => {
         presentationId: 'pres-123',
         slideId: 'slide-abc',
         url: 'https://example.com/private.png',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+      }
+    });
+  });
+
+  describe('addTableTool', () => {
+    it('sends createTable with correct rows, columns, and pageObjectId', async () => {
+      mockClient.batchUpdate.mockResolvedValue({
+        replies: [{ createTable: { objectId: 'table_123' } }],
+      });
+
+      const result = await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        rows: 3,
+        columns: 4,
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.createTable.rows).toBe(3);
+      expect(request.createTable.columns).toBe(4);
+      expect(request.createTable.elementProperties.pageObjectId).toBe('slide-abc');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBe('table_123');
+        expect(result.data?.rows).toBe(3);
+        expect(result.data?.columns).toBe(4);
+      }
+    });
+
+    it('converts x, y, width, height from points to EMU', async () => {
+      mockClient.batchUpdate.mockResolvedValue({
+        replies: [{ createTable: { objectId: 'table_456' } }],
+      });
+
+      await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        rows: 2,
+        columns: 2,
+        x: 50,
+        y: 75,
+        width: 400,
+        height: 200,
+      });
+
+      const EMU = 12700;
+      const props = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0].createTable.elementProperties;
+      expect(props.transform.translateX).toBe(50 * EMU);
+      expect(props.transform.translateY).toBe(75 * EMU);
+      expect(props.size.width.magnitude).toBe(400 * EMU);
+      expect(props.size.height.magnitude).toBe(200 * EMU);
+    });
+
+    it('applies default position (100, 100) and size (400 × 200) when omitted', async () => {
+      mockClient.batchUpdate.mockResolvedValue({
+        replies: [{ createTable: { objectId: 'table_789' } }],
+      });
+
+      await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        rows: 2,
+        columns: 3,
+      });
+
+      const EMU = 12700;
+      const props = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0].createTable.elementProperties;
+      expect(props.transform.translateX).toBe(100 * EMU);
+      expect(props.transform.translateY).toBe(100 * EMU);
+      expect(props.size.width.magnitude).toBe(400 * EMU);
+      expect(props.size.height.magnitude).toBe(200 * EMU);
+    });
+
+    it('rejects rows < 1 without calling the API', async () => {
+      const result = await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        rows: 0,
+        columns: 3,
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('rows');
+      }
+    });
+
+    it('rejects columns < 1 without calling the API', async () => {
+      const result = await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        rows: 3,
+        columns: 0,
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('columns');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(
+        new SlidesAPIError('Slide not found', 404)
+      );
+
+      const result = await addTableTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-missing',
+        rows: 2,
+        columns: 2,
       });
 
       expect(result.success).toBe(false);

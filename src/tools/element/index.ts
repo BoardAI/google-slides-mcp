@@ -43,3 +43,5 @@ export { elementUpdateTextTool, ElementUpdateTextParams } from './update-text.js
 export { elementMoveResizeTool, ElementMoveResizeParams } from './move-resize.js';
 export { elementAddShapeTool, ElementAddShapeParams } from './add-shape.js';
 export { elementStyleTool, ElementStyleParams } from './style.js';
+export { elementFormatTextTool, ElementFormatTextParams } from './format-text.js';
+export { elementFindTool, ElementFindParams } from './find.js';

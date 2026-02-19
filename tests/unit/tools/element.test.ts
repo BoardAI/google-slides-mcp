@@ -5,6 +5,7 @@ import { elementUpdateTextTool } from '../../../src/tools/element/index.js';
 import { elementMoveResizeTool } from '../../../src/tools/element/index.js';
 import { elementAddShapeTool } from '../../../src/tools/element/index.js';
 import { elementStyleTool } from '../../../src/tools/element/index.js';
+import { elementFormatTextTool } from '../../../src/tools/element/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
 
@@ -626,6 +627,368 @@ describe('Element Tools', () => {
       if (!result.success) {
         expect(result.error.type).toBe('api');
       }
+    });
+  });
+
+  describe('elementFormatTextTool', () => {
+    describe('text range', () => {
+      it('no startIndex or endIndex — uses type ALL', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.textRange).toEqual({ type: 'ALL' });
+      });
+
+      it('both startIndex and endIndex — uses FIXED_RANGE', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+          startIndex: 5,
+          endIndex: 10,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.textRange).toEqual({
+          type: 'FIXED_RANGE',
+          startIndex: 5,
+          endIndex: 10,
+        });
+      });
+
+      it('startIndex only — uses FROM_START_INDEX', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+          startIndex: 3,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.textRange).toEqual({
+          type: 'FROM_START_INDEX',
+          startIndex: 3,
+        });
+      });
+
+      it('endIndex only — uses FIXED_RANGE with startIndex 0', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+          endIndex: 8,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.textRange).toEqual({
+          type: 'FIXED_RANGE',
+          startIndex: 0,
+          endIndex: 8,
+        });
+      });
+    });
+
+    describe('text style', () => {
+      it('bold — sends updateTextStyle with bold:true, fields:bold', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(1);
+        expect(requests[0].updateTextStyle.objectId).toBe('elem-abc');
+        expect(requests[0].updateTextStyle.style.bold).toBe(true);
+        expect(requests[0].updateTextStyle.fields).toBe('bold');
+        expect(result.success).toBe(true);
+      });
+
+      it('italic + underline — field mask contains both', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          italic: true,
+          underline: true,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        const fields: string = requests[0].updateTextStyle.fields;
+        expect(fields).toContain('italic');
+        expect(fields).toContain('underline');
+      });
+
+      it('fontSize — sends magnitude in PT', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          fontSize: 24,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.style.fontSize).toEqual({ magnitude: 24, unit: 'PT' });
+        expect(requests[0].updateTextStyle.fields).toContain('fontSize');
+      });
+
+      it('fontFamily — sends weightedFontFamily, field mask weightedFontFamily', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          fontFamily: 'Arial',
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.style.weightedFontFamily).toEqual({ fontFamily: 'Arial' });
+        expect(requests[0].updateTextStyle.fields).toContain('weightedFontFamily');
+      });
+
+      it('foregroundColor hex — sends opaqueColor rgbColor, field mask foregroundColor', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          foregroundColor: '#FF0000',
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.style.foregroundColor).toEqual({
+          opaqueColor: { rgbColor: { red: 1, green: 0, blue: 0 } },
+        });
+        expect(requests[0].updateTextStyle.fields).toContain('foregroundColor');
+      });
+
+      it('backgroundColor hex — sends opaqueColor rgbColor, field mask backgroundColor', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          backgroundColor: '#FFFF00',
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateTextStyle.style.backgroundColor).toEqual({
+          opaqueColor: { rgbColor: { red: 1, green: 1, blue: 0 } },
+        });
+        expect(requests[0].updateTextStyle.fields).toContain('backgroundColor');
+      });
+    });
+
+    describe('paragraph style', () => {
+      it('alignment CENTER — sends updateParagraphStyle, field mask alignment', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          alignment: 'CENTER',
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(1);
+        expect(requests[0].updateParagraphStyle.objectId).toBe('elem-abc');
+        expect(requests[0].updateParagraphStyle.style.alignment).toBe('CENTER');
+        expect(requests[0].updateParagraphStyle.fields).toContain('alignment');
+        expect(result.success).toBe(true);
+      });
+
+      it('lineSpacing 150 — sends lineSpacing: 150', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          lineSpacing: 150,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateParagraphStyle.style.lineSpacing).toBe(150);
+        expect(requests[0].updateParagraphStyle.fields).toContain('lineSpacing');
+      });
+
+      it('spaceAbove and spaceBelow — sends PT magnitudes', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          spaceAbove: 10,
+          spaceBelow: 5,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests[0].updateParagraphStyle.style.spaceAbove).toEqual({ magnitude: 10, unit: 'PT' });
+        expect(requests[0].updateParagraphStyle.style.spaceBelow).toEqual({ magnitude: 5, unit: 'PT' });
+        const fields: string = requests[0].updateParagraphStyle.fields;
+        expect(fields).toContain('spaceAbove');
+        expect(fields).toContain('spaceBelow');
+      });
+    });
+
+    describe('bullets', () => {
+      it('bulletPreset string — sends createParagraphBullets with preset', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE',
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(1);
+        expect(requests[0].createParagraphBullets.objectId).toBe('elem-abc');
+        expect(requests[0].createParagraphBullets.bulletPreset).toBe('BULLET_DISC_CIRCLE_SQUARE');
+        expect(result.success).toBe(true);
+      });
+
+      it('bulletPreset null — sends deleteParagraphBullets', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bulletPreset: null,
+        });
+
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(1);
+        expect(requests[0].deleteParagraphBullets.objectId).toBe('elem-abc');
+        expect(result.success).toBe(true);
+      });
+    });
+
+    describe('combined requests', () => {
+      it('text style + paragraph style — sends both in one batchUpdate call', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}, {}] });
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+          alignment: 'CENTER',
+        });
+
+        expect(mockClient.batchUpdate).toHaveBeenCalledTimes(1);
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(2);
+        expect(requests.some((r: any) => r.updateTextStyle)).toBe(true);
+        expect(requests.some((r: any) => r.updateParagraphStyle)).toBe(true);
+        expect(result.success).toBe(true);
+      });
+
+      it('text style + bulletPreset — sends both in one batchUpdate call', async () => {
+        mockClient.batchUpdate.mockResolvedValue({ replies: [{}, {}] });
+
+        await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          bold: true,
+          bulletPreset: 'NUMBERED_DIGIT_ALPHA_ROMAN',
+        });
+
+        expect(mockClient.batchUpdate).toHaveBeenCalledTimes(1);
+        const requests = mockClient.batchUpdate.mock.calls[0][1] as any[];
+        expect(requests).toHaveLength(2);
+        expect(requests.some((r: any) => r.updateTextStyle)).toBe(true);
+        expect(requests.some((r: any) => r.createParagraphBullets)).toBe(true);
+      });
+    });
+
+    describe('validation', () => {
+      it('no style params — returns validation error without calling API', async () => {
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+        });
+
+        expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.type).toBe('validation');
+        }
+      });
+
+      it('invalid hex foregroundColor — returns validation error without calling API', async () => {
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          foregroundColor: 'red',
+        });
+
+        expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.type).toBe('validation');
+          expect(result.error.message).toContain('red');
+        }
+      });
+
+      it('invalid alignment value — returns validation error without calling API', async () => {
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          alignment: 'DIAGONAL' as any,
+        });
+
+        expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.type).toBe('validation');
+        }
+      });
+
+      it('fontSize 0 — returns validation error without calling API', async () => {
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-abc',
+          fontSize: 0,
+        });
+
+        expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.type).toBe('validation');
+        }
+      });
+    });
+
+    describe('error handling', () => {
+      it('API error — returns api error response', async () => {
+        mockClient.batchUpdate.mockRejectedValue(new SlidesAPIError('Element not found', 404));
+
+        const result = await elementFormatTextTool(mockClient, {
+          presentationId: 'pres-123',
+          elementId: 'elem-missing',
+          bold: true,
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.type).toBe('api');
+        }
+      });
     });
   });
 });

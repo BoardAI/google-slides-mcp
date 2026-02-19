@@ -45,6 +45,10 @@ import {
   ElementAddShapeParams,
   elementStyleTool,
   ElementStyleParams,
+  elementFormatTextTool,
+  ElementFormatTextParams,
+  elementFindTool,
+  ElementFindParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -54,6 +58,32 @@ import {
   addImageTool,
   AddImageParams,
 } from './tools/helpers/image.js';
+import {
+  addTableTool,
+  AddTableParams,
+} from './tools/helpers/table.js';
+import {
+  tableSetCellTool,
+  tableFormatCellTextTool,
+  tableStyleCellTool,
+  tableInsertRowsTool,
+  tableDeleteRowsTool,
+  tableSetRowHeightTool,
+  tableInsertColumnsTool,
+  tableDeleteColumnsTool,
+  tableSetColumnWidthTool,
+  tableMergeCellsTool,
+  TableSetCellParams,
+  TableFormatCellTextParams,
+  TableStyleCellParams,
+  TableInsertRowsParams,
+  TableDeleteRowsParams,
+  TableSetRowHeightParams,
+  TableInsertColumnsParams,
+  TableDeleteColumnsParams,
+  TableSetColumnWidthParams,
+  TableMergeCellsParams,
+} from './tools/table/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -122,7 +152,7 @@ async function main() {
     return {
       tools: [
         {
-          name: 'create_presentation',
+          name: 'presentation_create',
           description: 'Create a new Google Slides presentation',
           inputSchema: {
             type: 'object',
@@ -136,7 +166,7 @@ async function main() {
           },
         },
         {
-          name: 'get_presentation',
+          name: 'presentation_get',
           description: 'Get details of an existing Google Slides presentation',
           inputSchema: {
             type: 'object',
@@ -150,7 +180,7 @@ async function main() {
           },
         },
         {
-          name: 'create_slide',
+          name: 'slide_create',
           description: 'Create a new slide in a presentation',
           inputSchema: {
             type: 'object',
@@ -168,7 +198,7 @@ async function main() {
           },
         },
         {
-          name: 'delete_slide',
+          name: 'slide_delete',
           description: 'Delete a slide from a presentation',
           inputSchema: {
             type: 'object',
@@ -186,7 +216,7 @@ async function main() {
           },
         },
         {
-          name: 'duplicate_slide',
+          name: 'slide_duplicate',
           description: 'Duplicate a slide in a presentation',
           inputSchema: {
             type: 'object',
@@ -451,6 +481,32 @@ async function main() {
           },
         },
         {
+          name: 'element_find',
+          description: 'Search for elements across all slides (or one slide) by type, shape type, or text content. Returns matching elements with their slide location.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              slideId: { type: 'string', description: 'Limit search to this slide ID (optional)' },
+              slideIndex: { type: 'integer', description: 'Limit search to this slide (0-based, optional)', minimum: 0 },
+              type: {
+                type: 'string',
+                enum: ['SHAPE', 'IMAGE', 'TABLE', 'LINE', 'VIDEO', 'WORD_ART', 'SHEETS_CHART'],
+                description: 'Filter by element type',
+              },
+              shapeType: {
+                type: 'string',
+                description: 'Filter shapes by shape type, e.g. "TEXT_BOX", "RECTANGLE", "ELLIPSE"',
+              },
+              text: {
+                type: 'string',
+                description: 'Filter by text content (case-insensitive substring match)',
+              },
+            },
+            required: ['presentationId'],
+          },
+        },
+        {
           name: 'add_image',
           description: 'Insert an image from a public HTTPS URL onto a slide',
           inputSchema: {
@@ -486,6 +542,212 @@ async function main() {
               },
             },
             required: ['presentationId', 'slideId', 'url'],
+          },
+        },
+        {
+          name: 'element_format_text',
+          description: 'Apply text formatting (bold, italic, font size, color, alignment, bullets, etc.) to all or a character range of an element. Use startIndex/endIndex to target a substring; omit both to format all text.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementId: { type: 'string', description: 'The ID of the element to format' },
+              startIndex: { type: 'integer', description: 'Start of character range (inclusive, 0-based). Omit to start from beginning.', minimum: 0 },
+              endIndex: { type: 'integer', description: 'End of character range (exclusive). Omit to extend to end of text.', minimum: 1 },
+              bold: { type: 'boolean', description: 'Set bold on or off' },
+              italic: { type: 'boolean', description: 'Set italic on or off' },
+              underline: { type: 'boolean', description: 'Set underline on or off' },
+              strikethrough: { type: 'boolean', description: 'Set strikethrough on or off' },
+              fontSize: { type: 'number', description: 'Font size in points, e.g. 18', exclusiveMinimum: 0 },
+              fontFamily: { type: 'string', description: 'Font family name, e.g. "Arial" or "Georgia"' },
+              foregroundColor: { type: 'string', description: 'Text color as hex, e.g. "#FF0000"' },
+              backgroundColor: { type: 'string', description: 'Text highlight/background color as hex, e.g. "#FFFF00"' },
+              alignment: { type: 'string', enum: ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'], description: 'Paragraph alignment' },
+              lineSpacing: { type: 'number', description: 'Line spacing as a percentage, e.g. 150 for 1.5×', minimum: 0 },
+              spaceAbove: { type: 'number', description: 'Space above paragraph in points', minimum: 0 },
+              spaceBelow: { type: 'number', description: 'Space below paragraph in points', minimum: 0 },
+              bulletPreset: { type: ['string', 'null'], description: 'Apply a bullet/numbered list preset (e.g. "BULLET_DISC_CIRCLE_SQUARE", "NUMBERED_DIGIT_ALPHA_ROMAN"), or null to remove bullets' },
+            },
+            required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'add_table',
+          description: 'Insert a table onto a slide with a specified number of rows and columns',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              slideId: { type: 'string', description: 'The ID of the slide to add the table to' },
+              rows: { type: 'integer', description: 'Number of rows', minimum: 1 },
+              columns: { type: 'integer', description: 'Number of columns', minimum: 1 },
+              x: { type: 'number', description: 'X position in points from left edge (default: 100)' },
+              y: { type: 'number', description: 'Y position in points from top edge (default: 100)' },
+              width: { type: 'number', description: 'Width in points (default: 400)' },
+              height: { type: 'number', description: 'Height in points (default: 200)' },
+            },
+            required: ['presentationId', 'slideId', 'rows', 'columns'],
+          },
+        },
+        {
+          name: 'table_set_cell',
+          description: 'Set the text content of a table cell, replacing any existing text',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              row: { type: 'integer', description: 'Row index (0-based)', minimum: 0 },
+              column: { type: 'integer', description: 'Column index (0-based)', minimum: 0 },
+              text: { type: 'string', description: 'Text to place in the cell. Pass empty string to clear.' },
+            },
+            required: ['presentationId', 'tableId', 'row', 'column', 'text'],
+          },
+        },
+        {
+          name: 'table_format_cell_text',
+          description: 'Apply text formatting (bold, font size, color, alignment, etc.) to all or a character range within a table cell',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              row: { type: 'integer', description: 'Row index (0-based)', minimum: 0 },
+              column: { type: 'integer', description: 'Column index (0-based)', minimum: 0 },
+              startIndex: { type: 'integer', description: 'Start of character range (inclusive, 0-based). Omit to start from beginning.', minimum: 0 },
+              endIndex: { type: 'integer', description: 'End of character range (exclusive). Omit to extend to end of text.', minimum: 1 },
+              bold: { type: 'boolean' },
+              italic: { type: 'boolean' },
+              underline: { type: 'boolean' },
+              strikethrough: { type: 'boolean' },
+              fontSize: { type: 'number', description: 'Font size in points', exclusiveMinimum: 0 },
+              fontFamily: { type: 'string', description: 'Font family name, e.g. "Arial"' },
+              foregroundColor: { type: 'string', description: 'Text color as hex, e.g. "#FF0000"' },
+              backgroundColor: { type: 'string', description: 'Text highlight color as hex' },
+              alignment: { type: 'string', enum: ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'] },
+            },
+            required: ['presentationId', 'tableId', 'row', 'column'],
+          },
+        },
+        {
+          name: 'table_style_cell',
+          description: 'Set background color and/or padding (contentInsets) on a table cell or a range of cells',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              row: { type: 'integer', description: 'Top-left row index (0-based)', minimum: 0 },
+              column: { type: 'integer', description: 'Top-left column index (0-based)', minimum: 0 },
+              rowSpan: { type: 'integer', description: 'Number of rows to style (default: 1)', minimum: 1 },
+              columnSpan: { type: 'integer', description: 'Number of columns to style (default: 1)', minimum: 1 },
+              backgroundColor: { type: 'string', description: 'Cell background color as hex, e.g. "#FF0000"' },
+              paddingTop: { type: 'number', description: 'Top padding in points', minimum: 0 },
+              paddingBottom: { type: 'number', description: 'Bottom padding in points', minimum: 0 },
+              paddingLeft: { type: 'number', description: 'Left padding in points', minimum: 0 },
+              paddingRight: { type: 'number', description: 'Right padding in points', minimum: 0 },
+            },
+            required: ['presentationId', 'tableId', 'row', 'column'],
+          },
+        },
+        {
+          name: 'table_insert_rows',
+          description: 'Insert one or more rows into a table above or below a reference row',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              rowIndex: { type: 'integer', description: 'Reference row index (0-based)', minimum: 0 },
+              count: { type: 'integer', description: 'Number of rows to insert (default: 1)', minimum: 1 },
+              insertBelow: { type: 'boolean', description: 'Insert below the reference row (default: true). Set false to insert above.' },
+            },
+            required: ['presentationId', 'tableId', 'rowIndex'],
+          },
+        },
+        {
+          name: 'table_delete_rows',
+          description: 'Delete one or more rows from a table by their indices',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              rowIndices: { type: 'array', items: { type: 'integer', minimum: 0 }, description: 'Row indices to delete (0-based). Multiple indices are deleted highest-first to avoid shifting.' },
+            },
+            required: ['presentationId', 'tableId', 'rowIndices'],
+          },
+        },
+        {
+          name: 'table_set_row_height',
+          description: 'Set the minimum row height for one or more table rows (rows may grow taller to fit content)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              rowIndices: { type: 'array', items: { type: 'integer', minimum: 0 }, description: 'Row indices to set height for (0-based)' },
+              minHeight: { type: 'number', description: 'Minimum row height in points', exclusiveMinimum: 0 },
+            },
+            required: ['presentationId', 'tableId', 'rowIndices', 'minHeight'],
+          },
+        },
+        {
+          name: 'table_insert_columns',
+          description: 'Insert one or more columns into a table left or right of a reference column',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              columnIndex: { type: 'integer', description: 'Reference column index (0-based)', minimum: 0 },
+              count: { type: 'integer', description: 'Number of columns to insert (default: 1)', minimum: 1 },
+              insertRight: { type: 'boolean', description: 'Insert to the right of the reference column (default: true). Set false to insert to the left.' },
+            },
+            required: ['presentationId', 'tableId', 'columnIndex'],
+          },
+        },
+        {
+          name: 'table_delete_columns',
+          description: 'Delete one or more columns from a table by their indices',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              columnIndices: { type: 'array', items: { type: 'integer', minimum: 0 }, description: 'Column indices to delete (0-based). Multiple indices are deleted highest-first to avoid shifting.' },
+            },
+            required: ['presentationId', 'tableId', 'columnIndices'],
+          },
+        },
+        {
+          name: 'table_set_column_width',
+          description: 'Set the width of one or more table columns',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              columnIndices: { type: 'array', items: { type: 'integer', minimum: 0 }, description: 'Column indices to resize (0-based)' },
+              width: { type: 'number', description: 'Column width in points', exclusiveMinimum: 0 },
+            },
+            required: ['presentationId', 'tableId', 'columnIndices', 'width'],
+          },
+        },
+        {
+          name: 'table_merge_cells',
+          description: 'Merge a rectangular range of table cells into one cell',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              tableId: { type: 'string', description: 'The ID of the table element' },
+              row: { type: 'integer', description: 'Top-left row index (0-based)', minimum: 0 },
+              column: { type: 'integer', description: 'Top-left column index (0-based)', minimum: 0 },
+              rowSpan: { type: 'integer', description: 'Number of rows to merge', minimum: 1 },
+              columnSpan: { type: 'integer', description: 'Number of columns to merge', minimum: 1 },
+            },
+            required: ['presentationId', 'tableId', 'row', 'column', 'rowSpan', 'columnSpan'],
           },
         },
         {
@@ -536,7 +798,7 @@ async function main() {
       const { name, arguments: args } = request.params;
 
       switch (name) {
-        case 'create_presentation': {
+        case 'presentation_create': {
           const params = args as unknown as CreatePresentationParams;
           const result = await createPresentationTool(client, params);
 
@@ -562,7 +824,7 @@ async function main() {
           }
         }
 
-        case 'get_presentation': {
+        case 'presentation_get': {
           const params = args as unknown as GetPresentationParams;
           const result = await getPresentationTool(client, params);
 
@@ -588,7 +850,7 @@ async function main() {
           }
         }
 
-        case 'create_slide': {
+        case 'slide_create': {
           const params = args as unknown as CreateSlideParams;
           const result = await createSlideTool(client, params);
 
@@ -614,7 +876,7 @@ async function main() {
           }
         }
 
-        case 'delete_slide': {
+        case 'slide_delete': {
           const params = args as unknown as DeleteSlideParams;
           const result = await deleteSlideTool(client, params);
 
@@ -640,7 +902,7 @@ async function main() {
           }
         }
 
-        case 'duplicate_slide': {
+        case 'slide_duplicate': {
           const params = args as unknown as DuplicateSlideParams;
           const result = await duplicateSlideTool(client, params);
 
@@ -853,6 +1115,144 @@ async function main() {
               content: [{ type: 'text', text: `Error: ${result.error.message}` }],
               isError: true,
             };
+          }
+        }
+
+        case 'element_find': {
+          const params = args as unknown as ElementFindParams;
+          const result = await elementFindTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'element_format_text': {
+          const params = args as unknown as ElementFormatTextParams;
+          const result = await elementFormatTextTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
+        case 'add_table': {
+          const params = args as unknown as AddTableParams;
+          const result = await addTableTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
+        case 'table_set_cell': {
+          const params = args as unknown as TableSetCellParams;
+          const result = await tableSetCellTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_format_cell_text': {
+          const params = args as unknown as TableFormatCellTextParams;
+          const result = await tableFormatCellTextTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_style_cell': {
+          const params = args as unknown as TableStyleCellParams;
+          const result = await tableStyleCellTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_insert_rows': {
+          const params = args as unknown as TableInsertRowsParams;
+          const result = await tableInsertRowsTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_delete_rows': {
+          const params = args as unknown as TableDeleteRowsParams;
+          const result = await tableDeleteRowsTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_set_row_height': {
+          const params = args as unknown as TableSetRowHeightParams;
+          const result = await tableSetRowHeightTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_insert_columns': {
+          const params = args as unknown as TableInsertColumnsParams;
+          const result = await tableInsertColumnsTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_delete_columns': {
+          const params = args as unknown as TableDeleteColumnsParams;
+          const result = await tableDeleteColumnsTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_set_column_width': {
+          const params = args as unknown as TableSetColumnWidthParams;
+          const result = await tableSetColumnWidthTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'table_merge_cells': {
+          const params = args as unknown as TableMergeCellsParams;
+          const result = await tableMergeCellsTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
           }
         }
 
