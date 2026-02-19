@@ -3,6 +3,8 @@ import {
   createSlideTool,
   deleteSlideTool,
   duplicateSlideTool,
+  slideReorderTool,
+  slideSetBackgroundTool,
 } from '../../../src/tools/slide/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
@@ -337,6 +339,109 @@ describe('Slide Tools', () => {
       }
     });
 
+    it('should look up slideId from slideIndex 0 via getPresentation, then call getSlide', async () => {
+      mockClient.getPresentation.mockResolvedValue({
+        slides: [
+          { objectId: 'slide-first' },
+          { objectId: 'slide-second' },
+          { objectId: 'slide-third' },
+        ],
+      });
+      mockClient.getSlide.mockResolvedValue({ objectId: 'slide-first', pageElements: [] });
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideIndex: 0,
+      });
+
+      expect(mockClient.getPresentation).toHaveBeenCalledWith('pres-123');
+      expect(mockClient.getSlide).toHaveBeenCalledWith('pres-123', 'slide-first');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.slideId).toBe('slide-first');
+      }
+    });
+
+    it('should look up slideId from slideIndex 2 via getPresentation', async () => {
+      mockClient.getPresentation.mockResolvedValue({
+        slides: [
+          { objectId: 'slide-first' },
+          { objectId: 'slide-second' },
+          { objectId: 'slide-third' },
+        ],
+      });
+      mockClient.getSlide.mockResolvedValue({ objectId: 'slide-third', pageElements: [] });
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideIndex: 2,
+      });
+
+      expect(mockClient.getSlide).toHaveBeenCalledWith('pres-123', 'slide-third');
+      expect(result.success).toBe(true);
+    });
+
+    it('should return validation error when slideIndex is out of bounds', async () => {
+      mockClient.getPresentation.mockResolvedValue({
+        slides: [{ objectId: 'slide-only' }],
+      });
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideIndex: 5,
+      });
+
+      expect(mockClient.getSlide).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('5');
+      }
+    });
+
+    it('should return validation error when slideIndex is negative', async () => {
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+        slideIndex: -1,
+      });
+
+      expect(mockClient.getPresentation).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('-1');
+      }
+    });
+
+    it('should return validation error when neither slideId nor slideIndex is provided', async () => {
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-123',
+      } as any);
+
+      expect(mockClient.getPresentation).not.toHaveBeenCalled();
+      expect(mockClient.getSlide).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+      }
+    });
+
+    it('should propagate API error from getPresentation when using slideIndex', async () => {
+      mockClient.getPresentation.mockRejectedValue(
+        new SlidesAPIError('Presentation not found', 404)
+      );
+
+      const result = await slideGetTool(mockClient, {
+        presentationId: 'pres-missing',
+        slideIndex: 0,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+      }
+    });
+
     it('should format TABLE, VIDEO, LINE, WORD ART, and SHEETS CHART elements', async () => {
       mockClient.getSlide.mockResolvedValue({
         objectId: 'slide-x',
@@ -391,6 +496,199 @@ describe('Slide Tools', () => {
         expect(result.message).toContain('SHEETS CHART');
         expect(result.message).toContain('sheet-xyz');
         expect(result.data?.elements).toHaveLength(5);
+      }
+    });
+  });
+
+  describe('slideReorderTool', () => {
+    it('moves slide to position 0 — sends updateSlidesPosition with correct slideObjectIds and insertionIndex', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await slideReorderTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        insertionIndex: 0,
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updateSlidesPosition: {
+            slideObjectIds: ['slide-abc'],
+            insertionIndex: 0,
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.slideId).toBe('slide-abc');
+        expect(result.data?.insertionIndex).toBe(0);
+      }
+    });
+
+    it('moves slide to position 3', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      await slideReorderTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-xyz',
+        insertionIndex: 3,
+      });
+
+      const request = (mockClient.batchUpdate.mock.calls[0][1] as any[])[0];
+      expect(request.updateSlidesPosition.slideObjectIds).toEqual(['slide-xyz']);
+      expect(request.updateSlidesPosition.insertionIndex).toBe(3);
+    });
+
+    it('rejects negative insertionIndex without calling the API', async () => {
+      const result = await slideReorderTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        insertionIndex: -1,
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('-1');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(
+        new SlidesAPIError('Slide not found', 404)
+      );
+
+      const result = await slideReorderTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-missing',
+        insertionIndex: 1,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
+      }
+    });
+  });
+
+  describe('slideSetBackgroundTool', () => {
+    it('sets solid color background — sends updatePageProperties with rgbColor and correct fields mask', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        color: '#0000FF',
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updatePageProperties: {
+            objectId: 'slide-abc',
+            pageProperties: {
+              pageBackgroundFill: {
+                solidFill: {
+                  color: {
+                    rgbColor: { red: 0, green: 0, blue: 1 },
+                  },
+                },
+              },
+            },
+            fields: 'pageBackgroundFill.solidFill',
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.slideId).toBe('slide-abc');
+      }
+    });
+
+    it('sets image background — sends updatePageProperties with stretchedPictureFill and correct fields mask', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        imageUrl: 'https://example.com/bg.jpg',
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updatePageProperties: {
+            objectId: 'slide-abc',
+            pageProperties: {
+              pageBackgroundFill: {
+                stretchedPictureFill: {
+                  contentUrl: 'https://example.com/bg.jpg',
+                },
+              },
+            },
+            fields: 'pageBackgroundFill.stretchedPictureFill',
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects invalid hex color without calling API', async () => {
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        color: 'blue',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('blue');
+      }
+    });
+
+    it('rejects non-HTTPS image URL without calling API', async () => {
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+        imageUrl: 'http://example.com/bg.jpg',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('https');
+      }
+    });
+
+    it('rejects when neither color nor imageUrl is provided', async () => {
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-abc',
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+      }
+    });
+
+    it('handles API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(
+        new SlidesAPIError('Slide not found', 404)
+      );
+
+      const result = await slideSetBackgroundTool(mockClient, {
+        presentationId: 'pres-123',
+        slideId: 'slide-missing',
+        color: '#FF0000',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
       }
     });
   });

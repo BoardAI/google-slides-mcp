@@ -27,6 +27,10 @@ import {
   DuplicateSlideParams,
   slideGetTool,
   SlideGetParams,
+  slideReorderTool,
+  SlideReorderParams,
+  slideSetBackgroundTool,
+  SlideSetBackgroundParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
@@ -37,11 +41,19 @@ import {
   ElementUpdateTextParams,
   elementMoveResizeTool,
   ElementMoveResizeParams,
+  elementAddShapeTool,
+  ElementAddShapeParams,
+  elementStyleTool,
+  ElementStyleParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
   AddTextBoxParams,
 } from './tools/helpers/text.js';
+import {
+  addImageTool,
+  AddImageParams,
+} from './tools/helpers/image.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -197,7 +209,56 @@ async function main() {
         },
         {
           name: 'slide_get',
-          description: 'Get all elements on a slide with their IDs, types, positions, and text content',
+          description: 'Get all elements on a slide with their IDs, types, positions, and text content. Identify the slide by slideId or slideIndex (0-based).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide (provide this or slideIndex)',
+              },
+              slideIndex: {
+                type: 'integer',
+                description: 'Zero-based position of the slide (provide this or slideId)',
+                minimum: 0,
+              },
+              detailed: {
+                type: 'boolean',
+                description: 'When true, includes full raw API properties for each element (default: false)',
+              },
+            },
+            required: ['presentationId'],
+          },
+        },
+        {
+          name: 'slide_reorder',
+          description: 'Move a slide to a different position in the presentation (0-based index)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide to move',
+              },
+              insertionIndex: {
+                type: 'number',
+                description: 'The 0-based position to move the slide to (e.g. 0 = first, 1 = second)',
+              },
+            },
+            required: ['presentationId', 'slideId', 'insertionIndex'],
+          },
+        },
+        {
+          name: 'slide_set_background',
+          description: 'Set a slide\'s background to a solid color or an image',
           inputSchema: {
             type: 'object',
             properties: {
@@ -209,9 +270,13 @@ async function main() {
                 type: 'string',
                 description: 'The ID of the slide',
               },
-              detailed: {
-                type: 'boolean',
-                description: 'When true, includes full raw API properties for each element (default: false)',
+              color: {
+                type: 'string',
+                description: 'Background color as hex, e.g. "#1A1A2E". Cannot be used with imageUrl.',
+              },
+              imageUrl: {
+                type: 'string',
+                description: 'Public HTTPS URL of a background image. Cannot be used with color.',
               },
             },
             required: ['presentationId', 'slideId'],
@@ -315,6 +380,112 @@ async function main() {
               },
             },
             required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'element_add_shape',
+          description: 'Add a shape (rectangle, ellipse, arrow, star, etc.) to a slide. Use element_move_resize to reposition afterward.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide to add the shape to',
+              },
+              shapeType: {
+                type: 'string',
+                description: 'Shape type, e.g. RECTANGLE, ELLIPSE, TRIANGLE, RIGHT_ARROW, LEFT_ARROW, STAR_5, HEART, DIAMOND, etc.',
+              },
+              x: {
+                type: 'number',
+                description: 'X position in points from left edge (default: 100)',
+              },
+              y: {
+                type: 'number',
+                description: 'Y position in points from top edge (default: 100)',
+              },
+              width: {
+                type: 'number',
+                description: 'Width in points (default: 200)',
+              },
+              height: {
+                type: 'number',
+                description: 'Height in points (default: 150)',
+              },
+            },
+            required: ['presentationId', 'slideId', 'shapeType'],
+          },
+        },
+        {
+          name: 'element_style',
+          description: 'Set fill color, border color, and/or border width on a shape or text box element',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              elementId: {
+                type: 'string',
+                description: 'The ID of the element to style',
+              },
+              fillColor: {
+                type: 'string',
+                description: 'Fill/background color as hex, e.g. "#FF0000" for red',
+              },
+              borderColor: {
+                type: 'string',
+                description: 'Border/outline color as hex, e.g. "#000000" for black',
+              },
+              borderWidth: {
+                type: 'number',
+                description: 'Border width in points, e.g. 1 or 2',
+              },
+            },
+            required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'add_image',
+          description: 'Insert an image from a public HTTPS URL onto a slide',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              slideId: {
+                type: 'string',
+                description: 'The ID of the slide to add the image to',
+              },
+              url: {
+                type: 'string',
+                description: 'Public HTTPS URL of the image (PNG, JPG, GIF, SVG)',
+              },
+              x: {
+                type: 'number',
+                description: 'X position in points from left edge (default: 100)',
+              },
+              y: {
+                type: 'number',
+                description: 'Y position in points from top edge (default: 100)',
+              },
+              width: {
+                type: 'number',
+                description: 'Width in points. If omitted, Google uses the image\'s native width.',
+              },
+              height: {
+                type: 'number',
+                description: 'Height in points. If omitted, Google uses the image\'s native height.',
+              },
+            },
+            required: ['presentationId', 'slideId', 'url'],
           },
         },
         {
@@ -521,6 +692,34 @@ async function main() {
           }
         }
 
+        case 'slide_reorder': {
+          const params = args as unknown as SlideReorderParams;
+          const result = await slideReorderTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
+        case 'slide_set_background': {
+          const params = args as unknown as SlideSetBackgroundParams;
+          const result = await slideSetBackgroundTool(client, params);
+
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
         case 'element_delete': {
           const params = args as unknown as DeleteElementParams;
           const result = await deleteElementTool(client, params);
@@ -620,6 +819,54 @@ async function main() {
                   text: `Error: ${result.error.message}`,
                 },
               ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_add_shape': {
+          const params = args as unknown as ElementAddShapeParams;
+          const result = await elementAddShapeTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [{ type: 'text', text: result.message }],
+            };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_style': {
+          const params = args as unknown as ElementStyleParams;
+          const result = await elementStyleTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [{ type: 'text', text: result.message }],
+            };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+              isError: true,
+            };
+          }
+        }
+
+        case 'add_image': {
+          const params = args as unknown as AddImageParams;
+          const result = await addImageTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [{ type: 'text', text: result.message }],
+            };
+          } else {
+            return {
+              content: [{ type: 'text', text: `Error: ${result.error.message}` }],
               isError: true,
             };
           }
