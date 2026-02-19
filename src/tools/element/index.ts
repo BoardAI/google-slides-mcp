@@ -40,3 +40,4 @@ export async function deleteElementTool(
 
 export { elementGetTool, ElementGetParams } from './get.js';
 export { elementUpdateTextTool, ElementUpdateTextParams } from './update-text.js';
+export { elementMoveResizeTool, ElementMoveResizeParams } from './move-resize.js';

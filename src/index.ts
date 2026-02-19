@@ -35,6 +35,8 @@ import {
   ElementGetParams,
   elementUpdateTextTool,
   ElementUpdateTextParams,
+  elementMoveResizeTool,
+  ElementMoveResizeParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -279,6 +281,40 @@ async function main() {
               },
             },
             required: ['presentationId', 'elementId', 'text'],
+          },
+        },
+        {
+          name: 'element_move_resize',
+          description: 'Move and/or resize an existing element by setting new position (x, y) and/or size (width, height) in points',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              elementId: {
+                type: 'string',
+                description: 'The ID of the element to move or resize',
+              },
+              x: {
+                type: 'number',
+                description: 'New x position in points (distance from left edge of slide)',
+              },
+              y: {
+                type: 'number',
+                description: 'New y position in points (distance from top edge of slide)',
+              },
+              width: {
+                type: 'number',
+                description: 'New width in points',
+              },
+              height: {
+                type: 'number',
+                description: 'New height in points',
+              },
+            },
+            required: ['presentationId', 'elementId'],
           },
         },
         {
@@ -540,6 +576,32 @@ async function main() {
         case 'element_update_text': {
           const params = args as unknown as ElementUpdateTextParams;
           const result = await elementUpdateTextTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_move_resize': {
+          const params = args as unknown as ElementMoveResizeParams;
+          const result = await elementMoveResizeTool(client, params);
 
           if (result.success) {
             return {

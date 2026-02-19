@@ -2,6 +2,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { elementGetTool } from '../../../src/tools/element/index.js';
 import { deleteElementTool } from '../../../src/tools/element/index.js';
 import { elementUpdateTextTool } from '../../../src/tools/element/index.js';
+import { elementMoveResizeTool } from '../../../src/tools/element/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
 
@@ -258,6 +259,144 @@ describe('Element Tools', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.type).toBe('api');
+      }
+    });
+  });
+
+  describe('elementMoveResizeTool', () => {
+    // Mock element: intrinsic size 300pt × 100pt, currently at position 100pt, 200pt, scale 1×1
+    const mockPositionElement = {
+      objectId: 'elem-abc',
+      size: {
+        width: { magnitude: 3810000, unit: 'EMU' },   // 300pt intrinsic
+        height: { magnitude: 1270000, unit: 'EMU' },  // 100pt intrinsic
+      },
+      transform: {
+        scaleX: 1,
+        scaleY: 1,
+        shearX: 0,
+        shearY: 0,
+        translateX: 1270000,  // 100pt
+        translateY: 2540000,  // 200pt
+      },
+    };
+
+    it('move only — updates translateX/Y, preserves scaleX/Y', async () => {
+      mockClient.getElement.mockResolvedValue(mockPositionElement as any);
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementMoveResizeTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        x: 50,
+        y: 75,
+      });
+
+      expect(mockClient.getElement).toHaveBeenCalledWith('pres-123', 'elem-abc');
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updatePageElementTransform: {
+            objectId: 'elem-abc',
+            applyMode: 'ABSOLUTE',
+            transform: {
+              scaleX: 1,
+              scaleY: 1,
+              shearX: 0,
+              shearY: 0,
+              translateX: 635000, // 50 * 12700
+              translateY: 952500, // 75 * 12700
+              unit: 'EMU',
+            },
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBe('elem-abc');
+        expect(result.data?.x).toBe(50);
+        expect(result.data?.y).toBe(75);
+      }
+    });
+
+    it('resize only — computes scaleX/Y from intrinsic size, preserves translateX/Y', async () => {
+      mockClient.getElement.mockResolvedValue(mockPositionElement as any);
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementMoveResizeTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        width: 600,   // 600pt / 300pt intrinsic = scaleX 2
+        height: 200,  // 200pt / 100pt intrinsic = scaleY 2
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updatePageElementTransform: {
+            objectId: 'elem-abc',
+            applyMode: 'ABSOLUTE',
+            transform: {
+              scaleX: 2,
+              scaleY: 2,
+              shearX: 0,
+              shearY: 0,
+              translateX: 1270000,  // preserved (100pt)
+              translateY: 2540000,  // preserved (200pt)
+              unit: 'EMU',
+            },
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.width).toBe(600);
+        expect(result.data?.height).toBe(200);
+      }
+    });
+
+    it('move + resize — all four params computed correctly', async () => {
+      mockClient.getElement.mockResolvedValue(mockPositionElement as any);
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementMoveResizeTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        x: 50,
+        y: 75,
+        width: 600,
+        height: 200,
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        {
+          updatePageElementTransform: {
+            objectId: 'elem-abc',
+            applyMode: 'ABSOLUTE',
+            transform: {
+              scaleX: 2,
+              scaleY: 2,
+              shearX: 0,
+              shearY: 0,
+              translateX: 635000,
+              translateY: 952500,
+              unit: 'EMU',
+            },
+          },
+        },
+      ]);
+      expect(result.success).toBe(true);
+    });
+
+    it('no params — returns validation error without calling API', async () => {
+      const result = await elementMoveResizeTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+      });
+
+      expect(mockClient.getElement).not.toHaveBeenCalled();
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
       }
     });
   });

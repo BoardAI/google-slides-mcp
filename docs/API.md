@@ -260,6 +260,66 @@ Replace the text content of an existing element. Clears all existing text and in
 
 ---
 
+### element_move_resize
+
+Move and/or resize an existing element. Pass any combination of `x`, `y`, `width`, `height` — unspecified values are preserved from the current element state.
+
+**Parameters:**
+- `presentationId` (string, required): The ID of the presentation
+- `elementId` (string, required): The ID of the element to move or resize
+- `x` (number, optional): New x position in points (distance from left edge of slide)
+- `y` (number, optional): New y position in points (distance from top edge of slide)
+- `width` (number, optional): New width in points
+- `height` (number, optional): New height in points
+
+At least one of `x`, `y`, `width`, or `height` must be provided.
+
+**Coordinate System:**
+- Origin (0, 0) is top-left corner of the slide
+- Units are points (1 inch = 72 points)
+- Standard slide is 720 × 540 points (10" × 7.5")
+
+**Returns:**
+```json
+{
+  "elementId": "elem_001",
+  "x": 50,
+  "y": 75,
+  "width": 400,
+  "height": 100
+}
+```
+
+**Example — move only:**
+```typescript
+{
+  "name": "element_move_resize",
+  "arguments": {
+    "presentationId": "abc123",
+    "elementId": "elem_001",
+    "x": 50,
+    "y": 100
+  }
+}
+```
+
+**Example — resize only:**
+```typescript
+{
+  "name": "element_move_resize",
+  "arguments": {
+    "presentationId": "abc123",
+    "elementId": "elem_001",
+    "width": 400,
+    "height": 80
+  }
+}
+```
+
+**Tip:** Use `element_get` first to see the current position and size before repositioning.
+
+---
+
 ## Helper Tools
 
 ### add_text_box
