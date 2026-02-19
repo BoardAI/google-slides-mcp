@@ -192,11 +192,12 @@ Success message
 
 ### element_get
 
-Get details of a specific element by ID. Searches all slides in the presentation — no `slideId` needed.
+Get details of a specific element by ID. By default searches all slides in the presentation. Pass `slideId` to scope the search to one slide and get a more specific error if the element is not found there.
 
 **Parameters:**
 - `presentationId` (string, required): The ID of the presentation
 - `elementId` (string, required): The ID of the element to retrieve
+- `slideId` (string, optional): When provided, limits the search to this slide. If the element is not on that slide, the error message will say so explicitly.
 - `detailed` (boolean, optional): When `true`, appends full raw API JSON for the element (default: `false`)
 
 **Returns (summary mode):**

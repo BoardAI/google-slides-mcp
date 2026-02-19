@@ -11,6 +11,7 @@ describe('Element Tools', () => {
     mockClient = {
       batchUpdate: jest.fn(),
       getElement: jest.fn(),
+      getSlide: jest.fn(),
     } as any;
   });
 
@@ -180,6 +181,45 @@ describe('Element Tools', () => {
       if (chartResult.success) {
         expect(chartResult.message).toContain('SHEETS CHART');
         expect(chartResult.message).toContain('sheet-xyz');
+      }
+    });
+
+    it('slideId provided — element found on slide', async () => {
+      mockClient.getSlide.mockResolvedValue({
+        objectId: 'slide-abc',
+        pageElements: [mockElement],
+      } as any);
+
+      const result = await elementGetTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-xyz',
+        slideId: 'slide-abc',
+      });
+
+      expect(mockClient.getSlide).toHaveBeenCalledWith('pres-123', 'slide-abc');
+      expect(mockClient.getElement).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.message).toContain('elem-xyz');
+      }
+    });
+
+    it('slideId provided — element not found on slide', async () => {
+      mockClient.getSlide.mockResolvedValue({
+        objectId: 'slide-abc',
+        pageElements: [],
+      } as any);
+
+      const result = await elementGetTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-xyz',
+        slideId: 'slide-abc',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain('not found on slide');
+        expect(result.error.message).toContain('slide-abc');
       }
     });
   });

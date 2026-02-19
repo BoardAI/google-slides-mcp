@@ -245,6 +245,10 @@ async function main() {
                 type: 'string',
                 description: 'The ID of the element to retrieve',
               },
+              slideId: {
+                type: 'string',
+                description: 'Optional: ID of the slide to scope the search to. Produces a more specific error if the element is not on that slide.',
+              },
               detailed: {
                 type: 'boolean',
                 description: 'When true, includes full raw API properties (default: false)',
