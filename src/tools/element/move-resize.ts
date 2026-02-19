@@ -32,6 +32,14 @@ export async function elementMoveResizeTool(
 
     const intrinsicWidth = element.size?.width?.magnitude ?? 0;
     const intrinsicHeight = element.size?.height?.magnitude ?? 0;
+
+    if (width != null && intrinsicWidth === 0) {
+      return createErrorResponse('validation', `Cannot resize element ${elementId}: element has zero intrinsic width`);
+    }
+    if (height != null && intrinsicHeight === 0) {
+      return createErrorResponse('validation', `Cannot resize element ${elementId}: element has zero intrinsic height`);
+    }
+
     const currentScaleX = element.transform?.scaleX ?? 1;
     const currentScaleY = element.transform?.scaleY ?? 1;
     const currentTranslateX = element.transform?.translateX ?? 0;
@@ -39,12 +47,8 @@ export async function elementMoveResizeTool(
 
     const newTranslateX = x != null ? x * 12700 : currentTranslateX;
     const newTranslateY = y != null ? y * 12700 : currentTranslateY;
-    const newScaleX = width != null
-      ? (intrinsicWidth > 0 ? (width * 12700) / intrinsicWidth : 1)
-      : currentScaleX;
-    const newScaleY = height != null
-      ? (intrinsicHeight > 0 ? (height * 12700) / intrinsicHeight : 1)
-      : currentScaleY;
+    const newScaleX = width != null ? (width * 12700) / intrinsicWidth : currentScaleX;
+    const newScaleY = height != null ? (height * 12700) / intrinsicHeight : currentScaleY;
 
     await client.batchUpdate(presentationId, [
       {

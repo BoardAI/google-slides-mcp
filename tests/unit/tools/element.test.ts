@@ -384,6 +384,12 @@ describe('Element Tools', () => {
         },
       ]);
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.x).toBe(50);
+        expect(result.data?.y).toBe(75);
+        expect(result.data?.width).toBe(600);
+        expect(result.data?.height).toBe(200);
+      }
     });
 
     it('no params — returns validation error without calling API', async () => {
@@ -397,6 +403,30 @@ describe('Element Tools', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.type).toBe('validation');
+      }
+    });
+
+    it('resize requested on zero-intrinsic-width element — returns validation error', async () => {
+      mockClient.getElement.mockResolvedValue({
+        objectId: 'elem-abc',
+        size: {
+          width: { magnitude: 0, unit: 'EMU' },
+          height: { magnitude: 0, unit: 'EMU' },
+        },
+        transform: { scaleX: 1, scaleY: 1, shearX: 0, shearY: 0, translateX: 0, translateY: 0 },
+      } as any);
+
+      const result = await elementMoveResizeTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        width: 300,
+      });
+
+      expect(mockClient.batchUpdate).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('validation');
+        expect(result.error.message).toContain('zero intrinsic width');
       }
     });
   });
