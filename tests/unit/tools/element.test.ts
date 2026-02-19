@@ -1,6 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { elementGetTool } from '../../../src/tools/element/index.js';
 import { deleteElementTool } from '../../../src/tools/element/index.js';
+import { elementUpdateTextTool } from '../../../src/tools/element/index.js';
 import { SlidesClient } from '../../../src/google/client.js';
 import { SlidesAPIError } from '../../../src/google/types.js';
 
@@ -220,6 +221,43 @@ describe('Element Tools', () => {
       if (!result.success) {
         expect(result.error.message).toContain('not found on slide');
         expect(result.error.message).toContain('slide-abc');
+      }
+    });
+  });
+
+  describe('elementUpdateTextTool', () => {
+    it('should replace text with deleteText + insertText batch', async () => {
+      mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+
+      const result = await elementUpdateTextTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-abc',
+        text: 'New content',
+      });
+
+      expect(mockClient.batchUpdate).toHaveBeenCalledWith('pres-123', [
+        { deleteText: { objectId: 'elem-abc', textRange: { type: 'ALL' } } },
+        { insertText: { objectId: 'elem-abc', text: 'New content', insertionIndex: 0 } },
+      ]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data?.elementId).toBe('elem-abc');
+        expect(result.data?.text).toBe('New content');
+      }
+    });
+
+    it('should handle API errors', async () => {
+      mockClient.batchUpdate.mockRejectedValue(new SlidesAPIError('Element not found', 404));
+
+      const result = await elementUpdateTextTool(mockClient, {
+        presentationId: 'pres-123',
+        elementId: 'elem-missing',
+        text: 'New content',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.type).toBe('api');
       }
     });
   });

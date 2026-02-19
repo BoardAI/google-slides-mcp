@@ -33,6 +33,8 @@ import {
   DeleteElementParams,
   elementGetTool,
   ElementGetParams,
+  elementUpdateTextTool,
+  ElementUpdateTextParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -255,6 +257,28 @@ async function main() {
               },
             },
             required: ['presentationId', 'elementId'],
+          },
+        },
+        {
+          name: 'element_update_text',
+          description: 'Replace the text content of an existing element (clears existing text, inserts new text)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation',
+              },
+              elementId: {
+                type: 'string',
+                description: 'The ID of the element to update',
+              },
+              text: {
+                type: 'string',
+                description: 'The new text content — replaces all existing text',
+              },
+            },
+            required: ['presentationId', 'elementId', 'text'],
           },
         },
         {
@@ -490,6 +514,32 @@ async function main() {
         case 'element_get': {
           const params = args as unknown as ElementGetParams;
           const result = await elementGetTool(client, params);
+
+          if (result.success) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result.message,
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error: ${result.error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
+        case 'element_update_text': {
+          const params = args as unknown as ElementUpdateTextParams;
+          const result = await elementUpdateTextTool(client, params);
 
           if (result.success) {
             return {

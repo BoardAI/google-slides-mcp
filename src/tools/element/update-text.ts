@@ -7,28 +7,36 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 
-export interface DeleteElementParams {
+export interface ElementUpdateTextParams {
   presentationId: string;
   elementId: string;
+  text: string;
 }
 
-export async function deleteElementTool(
+export async function elementUpdateTextTool(
   client: SlidesClient,
-  params: DeleteElementParams
+  params: ElementUpdateTextParams
 ): Promise<ToolResponse> {
   try {
-    const requests = [
+    await client.batchUpdate(params.presentationId, [
       {
-        deleteObject: {
+        deleteText: {
           objectId: params.elementId,
+          textRange: { type: 'ALL' },
         },
       },
-    ];
-
-    await client.batchUpdate(params.presentationId, requests);
+      {
+        insertText: {
+          objectId: params.elementId,
+          text: params.text,
+          insertionIndex: 0,
+        },
+      },
+    ]);
 
     return createSuccessResponse(
-      formatResponse('simple', `Deleted element: ${params.elementId}`)
+      formatResponse('simple', `Updated text on element: ${params.elementId}`),
+      { elementId: params.elementId, text: params.text }
     );
   } catch (error: any) {
     if (error instanceof SlidesAPIError) {
@@ -37,6 +45,3 @@ export async function deleteElementTool(
     return createErrorResponse('api', error.message);
   }
 }
-
-export { elementGetTool, ElementGetParams } from './get.js';
-export { elementUpdateTextTool, ElementUpdateTextParams } from './update-text.js';

@@ -225,6 +225,41 @@ SHAPE [elem_001]
 
 ---
 
+### element_update_text
+
+Replace the text content of an existing element. Clears all existing text and inserts the new content.
+
+**Parameters:**
+- `presentationId` (string, required): The ID of the presentation
+- `elementId` (string, required): The ID of the element to update
+- `text` (string, required): The new text content (replaces all existing text)
+
+**Returns:**
+```json
+{
+  "elementId": "elem_001",
+  "text": "Updated text content"
+}
+```
+
+**Example:**
+```typescript
+{
+  "name": "element_update_text",
+  "arguments": {
+    "presentationId": "abc123",
+    "elementId": "elem_001",
+    "text": "New slide title"
+  }
+}
+```
+
+**Note:** Replaces ALL text in the element. Existing character-level formatting (fonts, colors, bold) is not preserved — the inserted text takes the element's default style.
+
+**Tip:** Use `element_get` first to confirm the element ID and that it is a SHAPE before calling `element_update_text`.
+
+---
+
 ## Helper Tools
 
 ### add_text_box
