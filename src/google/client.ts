@@ -1,4 +1,6 @@
 import { slides, slides_v1 } from '@googleapis/slides';
+import { drive } from '@googleapis/drive';
+import { writeFile } from 'fs/promises';
 import { OAuthManager } from '../auth/oauth.js';
 import {
   Presentation,
@@ -176,16 +178,85 @@ export class SlidesClient {
     );
   }
 
-  // Drive API operations (not available in MVP)
-  async listPresentations(): Promise<never> {
-    throw new SlidesAPIError(
-      'listPresentations requires Google Drive API access. ' +
-        'This MVP only supports the Slides API. ' +
-        'Please provide presentation IDs directly.',
-      501, // Not Implemented
-      undefined,
-      false
-    );
+  async getThumbnail(
+    presentationId: string,
+    slideId: string,
+    size?: 'SMALL' | 'MEDIUM' | 'LARGE'
+  ): Promise<{ contentUrl: string; width: number; height: number }> {
+    try {
+      const api = await this.getAPI();
+      const response = await api.presentations.pages.getThumbnail({
+        presentationId,
+        pageObjectId: slideId,
+        'thumbnailProperties.thumbnailSize': size ?? 'LARGE',
+      });
+      return {
+        contentUrl: response.data.contentUrl!,
+        width: response.data.width!,
+        height: response.data.height!,
+      };
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async listPresentations(
+    query?: string,
+    limit?: number
+  ): Promise<Array<{ id: string; name: string; modifiedTime?: string; webViewLink?: string }>> {
+    try {
+      const auth = this.oauthManager.getOAuth2Client();
+      const driveApi = drive({ version: 'v3', auth });
+
+      let q = "mimeType = 'application/vnd.google-apps.presentation' and trashed = false";
+      if (query) {
+        const escaped = query.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        q += ` and name contains '${escaped}'`;
+      }
+
+      const response = await driveApi.files.list({
+        q,
+        fields: 'files(id, name, modifiedTime, webViewLink)',
+        pageSize: limit ?? 20,
+        orderBy: 'modifiedTime desc',
+      });
+
+      return (response.data.files ?? []).map(f => ({
+        id: f.id!,
+        name: f.name ?? '(untitled)',
+        modifiedTime: f.modifiedTime ?? undefined,
+        webViewLink: f.webViewLink ?? undefined,
+      }));
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async exportPresentation(
+    presentationId: string,
+    format: 'pdf' | 'pptx',
+    outputPath: string
+  ): Promise<{ sizeBytes: number }> {
+    const mimeTypes = {
+      pdf: 'application/pdf',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+
+    try {
+      const auth = this.oauthManager.getOAuth2Client();
+      const driveApi = drive({ version: 'v3', auth });
+
+      const response = await driveApi.files.export(
+        { fileId: presentationId, mimeType: mimeTypes[format] },
+        { responseType: 'arraybuffer' }
+      );
+
+      const buffer = Buffer.from(response.data as ArrayBuffer);
+      await writeFile(outputPath, buffer);
+      return { sizeBytes: buffer.length };
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
   }
 
   async deletePresentation(presentationId: string): Promise<never> {
@@ -199,17 +270,18 @@ export class SlidesClient {
     );
   }
 
-  async copyPresentation(
-    presentationId: string,
-    title: string
-  ): Promise<never> {
-    throw new SlidesAPIError(
-      'copyPresentation requires Google Drive API access. ' +
-        'This MVP only supports the Slides API. ' +
-        'As a workaround, create a new presentation and copy content manually.',
-      501,
-      undefined,
-      false
-    );
+  async copyPresentation(templateId: string, title: string): Promise<string> {
+    try {
+      const auth = this.oauthManager.getOAuth2Client();
+      const driveApi = drive({ version: 'v3', auth });
+      const response = await driveApi.files.copy({
+        fileId: templateId,
+        requestBody: { name: title },
+        fields: 'id',
+      });
+      return response.data.id!;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
   }
 }

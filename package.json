@@ -25,6 +25,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@googleapis/drive": "^20.1.0",
     "@googleapis/slides": "^5.0.1",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "google-auth-library": "^10.5.0",

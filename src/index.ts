@@ -17,6 +17,12 @@ import {
   CreatePresentationParams,
   getPresentationTool,
   GetPresentationParams,
+  presentationListTool,
+  PresentationListParams,
+  presentationExportTool,
+  PresentationExportParams,
+  createFromTemplateTool,
+  CreateFromTemplateParams,
 } from './tools/presentation/index.js';
 import {
   createSlideTool,
@@ -31,6 +37,8 @@ import {
   SlideReorderParams,
   slideSetBackgroundTool,
   SlideSetBackgroundParams,
+  slideThumbnailTool,
+  SlideThumbnailParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
@@ -180,6 +188,59 @@ async function main() {
           },
         },
         {
+          name: 'presentation_create_from_template',
+          description: 'Copy an existing presentation as a template, then replace placeholder tokens (e.g. "{{name}}" → "Alice") throughout the copy',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              templateId: { type: 'string', description: 'The ID of the presentation to use as a template' },
+              title: { type: 'string', description: 'Title for the new presentation' },
+              replacements: {
+                type: 'object',
+                description: 'Token → value map, e.g. { "{{name}}": "Alice", "{{date}}": "Feb 2026" }',
+                additionalProperties: { type: 'string' },
+              },
+            },
+            required: ['templateId', 'title'],
+          },
+        },
+        {
+          name: 'presentation_export',
+          description: 'Export a presentation to a local file as PDF or PPTX',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation to export' },
+              outputPath: { type: 'string', description: 'Absolute local file path to write to, e.g. "/tmp/slides.pdf"' },
+              format: {
+                type: 'string',
+                enum: ['pdf', 'pptx'],
+                description: 'Export format: "pdf" (default) or "pptx"',
+              },
+            },
+            required: ['presentationId', 'outputPath'],
+          },
+        },
+        {
+          name: 'presentation_list',
+          description: 'List presentations in Google Drive, optionally filtered by name. Returns presentation IDs, names, and links.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'Filter by name (case-insensitive substring match, e.g. "Budget")',
+              },
+              limit: {
+                type: 'integer',
+                description: 'Maximum number of results to return (1–100, default 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+          },
+        },
+        {
           name: 'slide_create',
           description: 'Create a new slide in a presentation',
           inputSchema: {
@@ -284,6 +345,20 @@ async function main() {
               },
             },
             required: ['presentationId', 'slideId', 'insertionIndex'],
+          },
+        },
+        {
+          name: 'slide_thumbnail',
+          description: 'Get a PNG thumbnail URL for a slide. The URL is temporary (~30 min). Identify the slide by slideId or slideIndex.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              slideId: { type: 'string', description: 'The ID of the slide (provide this or slideIndex)' },
+              slideIndex: { type: 'integer', description: 'Zero-based slide position (provide this or slideId)', minimum: 0 },
+              size: { type: 'string', enum: ['SMALL', 'MEDIUM', 'LARGE'], description: 'Thumbnail size (default: LARGE)' },
+            },
+            required: ['presentationId'],
           },
         },
         {
@@ -824,6 +899,36 @@ async function main() {
           }
         }
 
+        case 'presentation_create_from_template': {
+          const params = args as unknown as CreateFromTemplateParams;
+          const result = await createFromTemplateTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'presentation_export': {
+          const params = args as unknown as PresentationExportParams;
+          const result = await presentationExportTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'presentation_list': {
+          const params = args as unknown as PresentationListParams;
+          const result = await presentationListTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
         case 'presentation_get': {
           const params = args as unknown as GetPresentationParams;
           const result = await getPresentationTool(client, params);
@@ -965,6 +1070,16 @@ async function main() {
               content: [{ type: 'text', text: `Error: ${result.error.message}` }],
               isError: true,
             };
+          }
+        }
+
+        case 'slide_thumbnail': {
+          const params = args as unknown as SlideThumbnailParams;
+          const result = await slideThumbnailTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
           }
         }
 

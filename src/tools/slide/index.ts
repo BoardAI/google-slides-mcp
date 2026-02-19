@@ -149,3 +149,4 @@ export async function duplicateSlideTool(
 export { slideGetTool, SlideGetParams } from './get.js';
 export { slideReorderTool, SlideReorderParams } from './reorder.js';
 export { slideSetBackgroundTool, SlideSetBackgroundParams } from './set-background.js';
+export { slideThumbnailTool, SlideThumbnailParams } from './thumbnail.js';

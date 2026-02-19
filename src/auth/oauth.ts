@@ -10,7 +10,10 @@ export interface OAuthCredentials {
   redirect_uris: string[];
 }
 
-const SCOPES = ['https://www.googleapis.com/auth/presentations'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/presentations',
+  'https://www.googleapis.com/auth/drive.metadata.readonly',
+];
 
 export class OAuthManager {
   private oauth2Client: OAuth2Client;

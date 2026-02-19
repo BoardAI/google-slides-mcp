@@ -7,6 +7,10 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 
+export { presentationListTool, PresentationListParams } from './list.js';
+export { presentationExportTool, PresentationExportParams } from './export.js';
+export { createFromTemplateTool, CreateFromTemplateParams } from './create-from-template.js';
+
 export interface CreatePresentationParams {
   title: string;
 }
