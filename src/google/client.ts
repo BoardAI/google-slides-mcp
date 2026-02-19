@@ -270,6 +270,20 @@ export class SlidesClient {
     );
   }
 
+  async renamePresentation(presentationId: string, title: string): Promise<void> {
+    try {
+      const auth = this.oauthManager.getOAuth2Client();
+      const driveApi = drive({ version: 'v3', auth });
+      await driveApi.files.update({
+        fileId: presentationId,
+        requestBody: { name: title },
+        fields: 'id',
+      });
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   async copyPresentation(templateId: string, title: string): Promise<string> {
     try {
       const auth = this.oauthManager.getOAuth2Client();

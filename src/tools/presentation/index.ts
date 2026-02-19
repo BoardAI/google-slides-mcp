@@ -10,6 +10,7 @@ import {
 export { presentationListTool, PresentationListParams } from './list.js';
 export { presentationExportTool, PresentationExportParams } from './export.js';
 export { createFromTemplateTool, CreateFromTemplateParams } from './create-from-template.js';
+export { presentationRenameTool, PresentationRenameParams } from './rename.js';
 
 export interface CreatePresentationParams {
   title: string;

@@ -23,6 +23,8 @@ import {
   PresentationExportParams,
   createFromTemplateTool,
   CreateFromTemplateParams,
+  presentationRenameTool,
+  PresentationRenameParams,
 } from './tools/presentation/index.js';
 import {
   createSlideTool,
@@ -252,6 +254,18 @@ async function main() {
                 maximum: 100,
               },
             },
+          },
+        },
+        {
+          name: 'presentation_rename',
+          description: 'Rename a Google Slides presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation to rename' },
+              title: { type: 'string', description: 'The new title for the presentation' },
+            },
+            required: ['presentationId', 'title'],
           },
         },
         {
@@ -1049,6 +1063,16 @@ async function main() {
         case 'presentation_list': {
           const params = args as unknown as PresentationListParams;
           const result = await presentationListTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'presentation_rename': {
+          const params = args as unknown as PresentationRenameParams;
+          const result = await presentationRenameTool(client, params);
           if (result.success) {
             return { content: [{ type: 'text', text: result.message }] };
           } else {
