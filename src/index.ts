@@ -65,6 +65,12 @@ import {
   ElementReplaceImageParams,
   elementDuplicateTool,
   ElementDuplicateParams,
+  elementZOrderTool,
+  ElementZOrderParams,
+  elementGroupTool,
+  ElementGroupParams,
+  elementUngroupTool,
+  ElementUngroupParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -587,6 +593,62 @@ async function main() {
               },
             },
             required: ['presentationId'],
+          },
+        },
+        {
+          name: 'element_z_order',
+          description: 'Change the z-order (layering) of one or more elements on a slide: bring to front, send to back, move forward one step, or move backward one step',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'IDs of the elements to reorder (must be on the same slide)',
+                minItems: 1,
+              },
+              operation: {
+                type: 'string',
+                enum: ['BRING_TO_FRONT', 'SEND_TO_BACK', 'BRING_FORWARD', 'SEND_BACKWARD'],
+                description: 'BRING_TO_FRONT: move above all others; SEND_TO_BACK: move below all others; BRING_FORWARD / SEND_BACKWARD: move one step',
+              },
+            },
+            required: ['presentationId', 'elementIds', 'operation'],
+          },
+        },
+        {
+          name: 'element_group',
+          description: 'Group two or more elements so they can be moved, resized, and styled as a unit. Returns the new group element ID.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              elementIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'IDs of the elements to group (must be on the same slide, minimum 2)',
+                minItems: 2,
+              },
+            },
+            required: ['presentationId', 'elementIds'],
+          },
+        },
+        {
+          name: 'element_ungroup',
+          description: 'Ungroup one or more group elements, releasing their children back to the slide as independent elements',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: { type: 'string', description: 'The ID of the presentation' },
+              groupIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'IDs of the group elements to ungroup (minimum 1)',
+                minItems: 1,
+              },
+            },
+            required: ['presentationId', 'groupIds'],
           },
         },
         {
@@ -1311,6 +1373,36 @@ async function main() {
         case 'element_duplicate': {
           const params = args as unknown as ElementDuplicateParams;
           const result = await elementDuplicateTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'element_z_order': {
+          const params = args as unknown as ElementZOrderParams;
+          const result = await elementZOrderTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'element_group': {
+          const params = args as unknown as ElementGroupParams;
+          const result = await elementGroupTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'element_ungroup': {
+          const params = args as unknown as ElementUngroupParams;
+          const result = await elementUngroupTool(client, params);
           if (result.success) {
             return { content: [{ type: 'text', text: result.message }] };
           } else {

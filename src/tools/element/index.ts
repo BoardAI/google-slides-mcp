@@ -47,3 +47,5 @@ export { elementFormatTextTool, ElementFormatTextParams } from './format-text.js
 export { elementFindTool, ElementFindParams } from './find.js';
 export { elementReplaceImageTool, ElementReplaceImageParams } from './replace-image.js';
 export { elementDuplicateTool, ElementDuplicateParams } from './duplicate.js';
+export { elementZOrderTool, ElementZOrderParams, ZOrderOperation } from './z-order.js';
+export { elementGroupTool, ElementGroupParams, elementUngroupTool, ElementUngroupParams } from './group.js';
