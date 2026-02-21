@@ -121,7 +121,9 @@ function loadCredentials(): OAuthCredentials {
   const credentialsPath = join(__dirname, '..', 'config', 'credentials.json');
   try {
     const credentialsData = readFileSync(credentialsPath, 'utf-8');
-    return JSON.parse(credentialsData);
+    const raw = JSON.parse(credentialsData);
+    // Google downloads credentials wrapped in "installed" (Desktop app) or "web"
+    return raw.installed ?? raw.web ?? raw;
   } catch (error: any) {
     console.error('❌ Error loading credentials.json');
     console.error('Please ensure config/credentials.json exists with your OAuth credentials.');
