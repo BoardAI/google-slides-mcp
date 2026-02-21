@@ -128,15 +128,71 @@ export class OAuthManager {
 
             if (code) {
               res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <html>
-                  <body>
-                    <h1>✅ Authentication Successful!</h1>
-                    <p>You can close this window and return to the terminal.</p>
-                    <script>window.close();</script>
-                  </body>
-                </html>
-              `);
+              res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Slides MCP — Authenticated</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #202124;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 48px 56px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.08);
+      max-width: 400px;
+      width: 100%;
+    }
+    .icon {
+      width: 56px;
+      height: 56px;
+      background: #e6f4ea;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 24px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #202124;
+    }
+    p {
+      font-size: 14px;
+      color: #5f6368;
+      line-height: 1.5;
+    }
+    .close-hint {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #9aa0a6;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✓</div>
+    <h1>You're connected</h1>
+    <p>Google Slides MCP has been authorized.<br>You can close this window.</p>
+    <p class="close-hint">This window will close automatically.</p>
+  </div>
+  <script>setTimeout(() => window.close(), 1500);</script>
+</body>
+</html>`);
               closeServer();
               resolve(code);
             } else {
