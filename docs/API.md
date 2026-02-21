@@ -1,15 +1,26 @@
-# API Documentation
+# API Reference
 
-Complete reference for all MCP tools provided by Google Slides MCP Server.
+Complete reference for all 43 MCP tools provided by Google Slides MCP Server.
+
+## Coordinate System
+
+All positions and sizes are in **points** (pt). A standard 16:9 slide is **720 × 405 pt**. Origin (0, 0) is top-left.
+
+```
+1 inch = 72 points
+Slide: 720pt wide × 405pt tall  (16:9)
+```
+
+---
 
 ## Presentation Tools
 
-### create_presentation
+### `presentation_create`
 
 Create a new Google Slides presentation.
 
 **Parameters:**
-- `title` (string, required): The title of the presentation
+- `title` (string, required): Title of the presentation
 
 **Returns:**
 ```json
@@ -20,126 +31,128 @@ Create a new Google Slides presentation.
 }
 ```
 
+---
+
+### `presentation_get`
+
+Get metadata and the list of slides in a presentation.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+
+**Returns:** Title, slide count, and slide IDs with layout names.
+
+---
+
+### `presentation_list`
+
+List presentations in Google Drive.
+
+**Parameters:**
+- `nameFilter` (string, optional): Case-insensitive substring filter on title
+- `maxResults` (number, optional): Maximum results to return (default: 20)
+
+**Returns:** Array of `{ presentationId, title, modifiedTime, url }`.
+
+---
+
+### `presentation_export`
+
+Export a presentation to PDF or PPTX.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `format` (string, required): `"pdf"` or `"pptx"`
+- `outputPath` (string, required): Absolute file path to write to
+
+**Returns:** Confirmation with the output file path.
+
+---
+
+### `presentation_create_from_template`
+
+Copy a presentation and replace `{{token}}` placeholders with values.
+
+**Parameters:**
+- `templateId` (string, required): Source presentation ID to copy
+- `title` (string, required): Title for the new presentation
+- `replacements` (object, required): Map of `{ "token": "replacement" }` pairs
+
 **Example:**
-```typescript
+```json
 {
-  "name": "create_presentation",
-  "arguments": {
-    "title": "Q4 Review 2024"
+  "templateId": "abc123",
+  "title": "Q4 2024 Review",
+  "replacements": {
+    "QUARTER": "Q4",
+    "YEAR": "2024",
+    "PRESENTER": "Jane Smith"
   }
 }
 ```
 
 ---
 
-### get_presentation
+### `presentation_rename`
 
-Retrieve presentation metadata and structure.
+Rename a presentation.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
+- `presentationId` (string, required): Presentation ID
+- `title` (string, required): New title
 
 **Returns:**
 ```json
-{
-  "presentationId": "abc123",
-  "title": "My Presentation",
-  "slideCount": 5,
-  "slides": [...]
-}
-```
-
-**Example:**
-```typescript
-{
-  "name": "get_presentation",
-  "arguments": {
-    "presentationId": "abc123"
-  }
-}
+{ "presentationId": "abc123", "title": "New Title" }
 ```
 
 ---
 
 ## Slide Tools
 
-### create_slide
+### `slide_create`
 
 Add a new slide to a presentation.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `insertionIndex` (number, optional): Zero-based index where slide should be inserted. If omitted, appends to end.
+- `presentationId` (string, required): Presentation ID
+- `insertionIndex` (number, optional): Zero-based index to insert at (default: append to end)
 
-**Returns:**
-```json
-{
-  "slideId": "slide_abc123"
-}
-```
-
-**Example:**
-```typescript
-{
-  "name": "create_slide",
-  "arguments": {
-    "presentationId": "abc123",
-    "insertionIndex": 1
-  }
-}
-```
+**Returns:** `{ slideId }` of the new slide.
 
 ---
 
-### delete_slide
+### `slide_delete`
 
-Delete a slide from a presentation.
+Delete a slide.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `slideId` (string, required): The ID of the slide to delete
-
-**Returns:**
-Success message
-
-**Example:**
-```typescript
-{
-  "name": "delete_slide",
-  "arguments": {
-    "presentationId": "abc123",
-    "slideId": "slide_xyz"
-  }
-}
-```
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): ID of the slide to delete
 
 ---
 
-### duplicate_slide
+### `slide_duplicate`
 
 Duplicate a slide within a presentation.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `slideId` (string, required): The ID of the slide to duplicate
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): ID of the slide to duplicate
 
-**Returns:**
-```json
-{
-  "slideId": "slide_xyz_copy"
-}
-```
+**Returns:** `{ originalSlideId, newSlideId }`.
 
 ---
 
-### slide_get
+### `slide_get`
 
-Get all elements on a slide with their IDs, types, positions, and text content.
+List all elements on a slide with positions, sizes, types, and text content.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `slideId` (string, required): The ID of the slide
-- `detailed` (boolean, optional): When `true`, appends full raw API JSON for all elements (default: `false`)
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, optional): ID of the slide (use this or `slideIndex`)
+- `slideIndex` (number, optional): Zero-based index of the slide
+- `detailed` (boolean, optional): Include full raw API JSON for all elements (default: false)
 
 **Returns (summary mode):**
 ```
@@ -151,218 +164,479 @@ Slide: slide_abc (3 elements)
 
 2. IMAGE [elem_002]
    Position: 50pt, 200pt  Size: 300pt × 200pt
-   URL: https://lh3.googleusercontent.com/...
 
 3. TABLE [elem_003]
-   Position: 50pt, 420pt  Size: 620pt × 100pt
+   Position: 50pt, 300pt  Size: 620pt × 100pt
    3 rows × 4 columns
 ```
 
-**Element types reported:** SHAPE, IMAGE, TABLE, VIDEO, LINE, WORD ART, SHEETS CHART
+**Tip:** Use `slide_get` to discover element IDs before editing or deleting.
 
-**Example:**
-```typescript
-{
-  "name": "slide_get",
-  "arguments": {
-    "presentationId": "abc123",
-    "slideId": "slide_xyz"
-  }
-}
-```
+---
 
-**Tip:** Use `slide_get` after `get_presentation` to discover element IDs before editing or deleting.
+### `slide_reorder`
+
+Move a slide to a new position.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): ID of the slide to move
+- `insertionIndex` (number, required): Zero-based target index
+
+---
+
+### `slide_set_background`
+
+Set the background of a slide to a solid color or image.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+- `color` (string, optional): Hex color string, e.g. `"#1a73e8"`
+- `imageUrl` (string, optional): URL of the background image
+
+Provide either `color` or `imageUrl`.
+
+---
+
+### `slide_thumbnail`
+
+Get a PNG thumbnail URL for a slide.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+
+**Returns:** `{ thumbnailUrl }` — a time-limited Google-hosted image URL.
+
+---
+
+### `slide_get_notes`
+
+Read the speaker notes for a slide.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, optional): Slide ID (use this or `slideIndex`)
+- `slideIndex` (number, optional): Zero-based slide index
+
+**Returns:** `{ slideId, notes }` where `notes` is the plain text content.
+
+---
+
+### `slide_set_notes`
+
+Write speaker notes for a slide (replaces existing notes).
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, optional): Slide ID (use this or `slideIndex`)
+- `slideIndex` (number, optional): Zero-based slide index
+- `notes` (string, required): New notes content (empty string clears notes)
 
 ---
 
 ## Element Tools
 
-### element_delete
+### `element_get`
 
-Delete an element (text box, shape, image, etc.) from a slide.
+Inspect a specific element — position, size, type, and text.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `elementId` (string, required): The ID of the element to delete
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `slideId` (string, optional): Scope search to this slide
+- `detailed` (boolean, optional): Include full raw API JSON (default: false)
 
-**Returns:**
-Success message
+**Tip:** Use `detailed: true` to inspect fonts, colors, and transforms before updating.
 
 ---
 
-### element_get
+### `element_delete`
 
-Get details of a specific element by ID. By default searches all slides in the presentation. Pass `slideId` to scope the search to one slide and get a more specific error if the element is not found there.
+Delete an element from a slide.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `elementId` (string, required): The ID of the element to retrieve
-- `slideId` (string, optional): When provided, limits the search to this slide. If the element is not on that slide, the error message will say so explicitly.
-- `detailed` (boolean, optional): When `true`, appends full raw API JSON for the element (default: `false`)
-
-**Returns (summary mode):**
-```
-SHAPE [elem_001]
-   Position: 100pt, 50pt  Size: 400pt × 80pt
-   Text: "Welcome to Q4 Review"
-```
-
-**Returns (detailed mode):** Same summary, plus the complete raw `PageElement` JSON from the Google Slides API.
-
-**Example:**
-```typescript
-{
-  "name": "element_get",
-  "arguments": {
-    "presentationId": "abc123",
-    "elementId": "elem_001",
-    "detailed": true
-  }
-}
-```
-
-**Tip:** Use `element_get` with `detailed: true` to inspect full styling properties (fonts, colors, transforms) before issuing an update.
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
 
 ---
 
-### element_update_text
+### `element_update_text`
 
-Replace the text content of an existing element. Clears all existing text and inserts the new content.
+Replace all text content in an element.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `elementId` (string, required): The ID of the element to update
-- `text` (string, required): The new text content (replaces all existing text)
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `text` (string, required): New text content
 
-**Returns:**
-```json
-{
-  "elementId": "elem_001",
-  "text": "Updated text content"
-}
-```
-
-**Example:**
-```typescript
-{
-  "name": "element_update_text",
-  "arguments": {
-    "presentationId": "abc123",
-    "elementId": "elem_001",
-    "text": "New slide title"
-  }
-}
-```
-
-**Note:** Replaces ALL text in the element. Existing character-level formatting (fonts, colors, bold) is not preserved — the inserted text takes the element's default style.
-
-**Tip:** Use `element_get` first to confirm the element ID and that it is a SHAPE before calling `element_update_text`.
+**Note:** Replaces ALL text. Existing character-level formatting is not preserved.
 
 ---
 
-### element_move_resize
+### `element_move_resize`
 
-Move and/or resize an existing element. Pass any combination of `x`, `y`, `width`, `height` — unspecified values are preserved from the current element state.
+Move and/or resize an element. Unspecified dimensions are preserved.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `elementId` (string, required): The ID of the element to move or resize
-- `x` (number, optional): New x position in points (distance from left edge of slide)
-- `y` (number, optional): New y position in points (distance from top edge of slide)
-- `width` (number, optional): New width in points
-- `height` (number, optional): New height in points
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `x` (number, optional): New x position in pt (left edge)
+- `y` (number, optional): New y position in pt (top edge)
+- `width` (number, optional): New width in pt
+- `height` (number, optional): New height in pt
 
-At least one of `x`, `y`, `width`, or `height` must be provided.
+At least one of `x`, `y`, `width`, `height` must be provided.
 
-**Coordinate System:**
-- Origin (0, 0) is top-left corner of the slide
-- Units are points (1 inch = 72 points)
-- Standard slide is 720 × 540 points (10" × 7.5")
+---
 
-**Returns:**
-```json
-{
-  "elementId": "elem_001",
-  "x": 50,
-  "y": 75,
-  "width": 400,
-  "height": 100
-}
-```
+### `element_add_shape`
 
-**Example — move only:**
-```typescript
-{
-  "name": "element_move_resize",
-  "arguments": {
-    "presentationId": "abc123",
-    "elementId": "elem_001",
-    "x": 50,
-    "y": 100
-  }
-}
-```
+Add a shape to a slide.
 
-**Example — resize only:**
-```typescript
-{
-  "name": "element_move_resize",
-  "arguments": {
-    "presentationId": "abc123",
-    "elementId": "elem_001",
-    "width": 400,
-    "height": 80
-  }
-}
-```
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+- `shapeType` (string, required): Shape type — e.g. `"RECTANGLE"`, `"ELLIPSE"`, `"ROUND_RECTANGLE"`, `"RIGHT_ARROW"`, `"LEFT_ARROW"`, `"FIVE_POINTED_STAR"`, `"HEART"`, `"CLOUD"`, etc.
+- `x` (number, optional): X position in pt (default: 100)
+- `y` (number, optional): Y position in pt (default: 100)
+- `width` (number, optional): Width in pt (default: 100)
+- `height` (number, optional): Height in pt (default: 100)
 
-**Tip:** Use `element_get` first to see the current position and size before repositioning.
+**Returns:** `{ elementId, shapeType, x, y, width, height }`.
+
+---
+
+### `element_style`
+
+Set the fill color, border color, and/or border width of an element.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `fillColor` (string, optional): Hex fill color, e.g. `"#1a73e8"`. Use `"transparent"` for no fill.
+- `borderColor` (string, optional): Hex border color
+- `borderWidth` (number, optional): Border width in pt
+
+At least one style property must be provided.
+
+---
+
+### `element_format_text`
+
+Apply text formatting to all or part of an element's text.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `bold` (boolean, optional): Set bold
+- `italic` (boolean, optional): Set italic
+- `underline` (boolean, optional): Set underline
+- `strikethrough` (boolean, optional): Set strikethrough
+- `fontSize` (number, optional): Font size in pt
+- `fontFamily` (string, optional): Font family name, e.g. `"Roboto"`
+- `color` (string, optional): Hex text color
+- `alignment` (string, optional): `"START"`, `"CENTER"`, `"END"`, or `"JUSTIFIED"`
+- `bulletPreset` (string, optional): Bullet/numbering style — e.g. `"BULLET_DISC_CIRCLE_SQUARE"`, `"NUMBERED_DIGIT_ALPHA_ROMAN"`
+- `startIndex` (number, optional): Start of text range (default: 0)
+- `endIndex` (number, optional): End of text range (default: full text)
+
+---
+
+### `element_find`
+
+Search for elements by type, shape type, or text content.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, optional): Scope search to one slide (default: search all slides)
+- `elementType` (string, optional): Filter by type — `"SHAPE"`, `"IMAGE"`, `"TABLE"`, `"LINE"`, etc.
+- `shapeType` (string, optional): Filter by shape type (for SHAPE elements)
+- `textContains` (string, optional): Filter by text content (case-insensitive substring match)
+
+**Returns:** List of matching elements with IDs, positions, and text snippets.
+
+---
+
+### `element_replace_image`
+
+Swap the image content of an IMAGE element while preserving its position and size.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID (must be an IMAGE element)
+- `imageUrl` (string, required): URL of the new image
+
+---
+
+### `element_duplicate`
+
+Duplicate an element on the same slide.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID to duplicate
+
+**Returns:** `{ originalElementId, newElementId }`.
+
+---
+
+### `element_z_order`
+
+Change the layering order of elements.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementIds` (string[], required): One or more element IDs
+- `operation` (string, required): One of:
+  - `"BRING_TO_FRONT"` — move above all others
+  - `"SEND_TO_BACK"` — move below all others
+  - `"BRING_FORWARD"` — move up one layer
+  - `"SEND_BACKWARD"` — move down one layer
+
+---
+
+### `element_group`
+
+Group two or more elements together so they move and resize as one unit.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementIds` (string[], required): At least two element IDs to group (must be on the same slide)
+
+**Returns:** `{ groupId, elementIds }`.
+
+---
+
+### `element_ungroup`
+
+Ungroup a previously grouped element.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `groupIds` (string[], required): One or more group element IDs to ungroup
+
+---
+
+### `element_set_link`
+
+Add or remove a hyperlink on an element's text.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `elementId` (string, required): Element ID
+- `url` (string, optional): URL to link to (must start with `https://`). Omit or pass empty string to remove the link.
+- `startIndex` (number, optional): Start of text range to link
+- `endIndex` (number, optional): End of text range to link
+
+If `startIndex`/`endIndex` are omitted, the link is applied to all text in the element.
 
 ---
 
 ## Helper Tools
 
-### add_text_box
+### `add_text_box`
 
-Add a text box to a slide with specified content and position.
+Add a text box to a slide with content and position.
 
 **Parameters:**
-- `presentationId` (string, required): The ID of the presentation
-- `slideId` (string, required): The ID of the slide
-- `text` (string, required): The text content
-- `x` (number, optional): X position in points (default: 100)
-- `y` (number, optional): Y position in points (default: 100)
-- `width` (number, optional): Width in points (default: 300)
-- `height` (number, optional): Height in points (default: 50)
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+- `text` (string, required): Text content
+- `x` (number, optional): X position in pt (default: 100)
+- `y` (number, optional): Y position in pt (default: 100)
+- `width` (number, optional): Width in pt (default: 300)
+- `height` (number, optional): Height in pt (default: 50)
 
-**Coordinate System:**
-- Origin (0,0) is top-left corner
-- Units are in points (1 inch = 72 points)
-- Standard slide is 720 x 540 points (10" x 7.5")
+**Returns:** `{ elementId, text }`.
 
-**Returns:**
-```json
-{
-  "elementId": "textbox_1234567890",
-  "text": "Hello, World!"
-}
-```
+---
 
-**Example:**
-```typescript
-{
-  "name": "add_text_box",
-  "arguments": {
-    "presentationId": "abc123",
-    "slideId": "slide_xyz",
-    "text": "Welcome to the presentation!",
-    "x": 50,
-    "y": 50,
-    "width": 400,
-    "height": 100
-  }
-}
-```
+### `add_image`
+
+Insert an image from a URL onto a slide.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+- `imageUrl` (string, required): Public URL of the image
+- `x` (number, optional): X position in pt (default: 100)
+- `y` (number, optional): Y position in pt (default: 100)
+- `width` (number, optional): Width in pt (default: 200)
+- `height` (number, optional): Height in pt (default: 150)
+
+**Returns:** `{ elementId, imageUrl, x, y, width, height }`.
+
+---
+
+### `add_table`
+
+Insert a table onto a slide.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `slideId` (string, required): Slide ID
+- `rows` (number, required): Number of rows
+- `columns` (number, required): Number of columns
+- `x` (number, optional): X position in pt (default: 100)
+- `y` (number, optional): Y position in pt (default: 100)
+- `width` (number, optional): Width in pt (default: 400)
+- `height` (number, optional): Height in pt (default: 200)
+
+**Returns:** `{ elementId, rows, columns }`.
+
+---
+
+## Table Tools
+
+### `table_set_cell`
+
+Set the text content of a table cell.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `row` (number, required): Zero-based row index
+- `column` (number, required): Zero-based column index
+- `text` (string, required): New cell content
+
+---
+
+### `table_format_cell_text`
+
+Apply text formatting within a table cell.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `row` (number, required): Zero-based row index
+- `column` (number, required): Zero-based column index
+- `bold` (boolean, optional)
+- `italic` (boolean, optional)
+- `fontSize` (number, optional): Font size in pt
+- `fontFamily` (string, optional)
+- `color` (string, optional): Hex text color
+- `alignment` (string, optional): `"START"`, `"CENTER"`, `"END"`, or `"JUSTIFIED"`
+
+---
+
+### `table_style_cell`
+
+Set the background color and padding of a table cell.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `row` (number, required): Zero-based row index
+- `column` (number, required): Zero-based column index
+- `backgroundColor` (string, optional): Hex fill color
+- `paddingTop` (number, optional): Top padding in pt
+- `paddingBottom` (number, optional): Bottom padding in pt
+- `paddingLeft` (number, optional): Left padding in pt
+- `paddingRight` (number, optional): Right padding in pt
+
+---
+
+### `table_insert_rows`
+
+Insert rows into a table.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `referenceRowIndex` (number, required): Zero-based index of reference row
+- `insertBelow` (boolean, required): `true` to insert below reference row, `false` to insert above
+- `count` (number, optional): Number of rows to insert (default: 1)
+
+---
+
+### `table_delete_rows`
+
+Delete rows from a table.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `startIndex` (number, required): Zero-based index of first row to delete
+- `count` (number, optional): Number of rows to delete (default: 1)
+
+---
+
+### `table_set_row_height`
+
+Set the minimum height of a table row.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `rowIndex` (number, required): Zero-based row index
+- `height` (number, required): Minimum row height in pt
+
+---
+
+### `table_insert_columns`
+
+Insert columns into a table.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `referenceColumnIndex` (number, required): Zero-based index of reference column
+- `insertRight` (boolean, required): `true` to insert to the right, `false` to insert to the left
+- `count` (number, optional): Number of columns to insert (default: 1)
+
+---
+
+### `table_delete_columns`
+
+Delete columns from a table.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `startIndex` (number, required): Zero-based index of first column to delete
+- `count` (number, optional): Number of columns to delete (default: 1)
+
+---
+
+### `table_set_column_width`
+
+Set the width of a table column.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `columnIndex` (number, required): Zero-based column index
+- `width` (number, required): Column width in pt
+
+---
+
+### `table_merge_cells`
+
+Merge a rectangular range of cells in a table.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `row` (number, required): Zero-based row index of the top-left cell
+- `column` (number, required): Zero-based column index of the top-left cell
+- `rowSpan` (number, required): Number of rows to merge (must be ≥ 1)
+- `columnSpan` (number, required): Number of columns to merge (must be ≥ 1)
+
+---
+
+### `table_unmerge_cells`
+
+Unmerge a previously merged range of cells.
+
+**Parameters:**
+- `presentationId` (string, required): Presentation ID
+- `tableId` (string, required): Table element ID
+- `row` (number, required): Zero-based row index of the top-left cell of the merged range
+- `column` (number, required): Zero-based column index of the top-left cell
+- `rowSpan` (number, required): Row span of the merged range (must be ≥ 1)
+- `columnSpan` (number, required): Column span of the merged range (must be ≥ 1)
 
 ---
 
@@ -376,52 +650,28 @@ All tools return consistent error responses:
   "error": {
     "type": "authentication | api | validation | network",
     "message": "Human-readable error message",
-    "details": { /* additional context */ },
-    "retryable": true | false
+    "details": {},
+    "retryable": true
   }
 }
 ```
 
 ### Common Errors
 
-**Authentication Error**
-```
-Not authenticated. Please run authentication flow first.
-```
-Solution: Delete tokens and re-authenticate
-
-**404 Not Found**
-```
-Presentation/Slide/Element ID 'xyz' not found. It may have been deleted.
-```
-Solution: Verify ID is correct and resource exists
-
-**403 Forbidden**
-```
-You don't have permission to access presentation ID: xyz
-```
-Solution: Check sharing settings in Google Slides
-
-**429 Rate Limit**
-```
-Rate limited. Try again in X seconds.
-```
-Note: Server automatically retries with exponential backoff
+| Error | Cause | Solution |
+|---|---|---|
+| `Not authenticated` | No tokens cached | Re-authenticate (restart triggers OAuth flow) |
+| `404 Not Found` | ID doesn't exist or was deleted | Verify ID with `presentation_get` or `slide_get` |
+| `403 Forbidden` | No edit access to presentation | Share presentation with your Google account |
+| `429 Rate Limit` | Too many API calls | Server retries automatically with exponential backoff |
 
 ---
 
-## Best Practices
+## Recommended Workflow
 
-1. **Use the drill-down workflow**: Start broad and narrow down before editing:
-   - `get_presentation` → discover slide IDs and count
-   - `slide_get` → discover element IDs, types, and positions on a specific slide
-   - `element_get` (with `detailed: true`) → inspect full properties of one element
-   - Then issue your edit or delete
+1. **Discover:** `presentation_get` → get slide IDs
+2. **Inspect:** `slide_get` → get element IDs, positions, types on a slide
+3. **Drill down:** `element_get` with `detailed: true` → inspect full properties
+4. **Edit:** Call the appropriate update/add/delete tool with confirmed IDs
 
-2. **Use helper tools**: Prefer `add_text_box` over low-level element creation for common operations
-
-3. **Handle errors gracefully**: Check for `success: false` and handle retryable errors
-
-4. **Keep IDs**: Store presentation/slide/element IDs for subsequent operations — they are stable for the lifetime of the object
-
-5. **Read before writing**: Always call `slide_get` or `element_get` before `element_delete` or future update tools to confirm you have the right element ID
+Element and slide IDs are stable for the lifetime of the object — store them for subsequent operations.

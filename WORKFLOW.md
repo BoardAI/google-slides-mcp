@@ -2,6 +2,8 @@
 
 This document explains how to keep your local development, GitHub, and npm registry in sync.
 
+> **Coordinate system:** All positions/sizes are in points. A standard 16:9 slide is 720 × 405 pt.
+
 ## Quick Reference
 
 ```bash
@@ -29,16 +31,9 @@ This document explains how to keep your local development, GitHub, and npm regis
 - Debugging issues
 - Testing with Claude Code during development
 
-**Claude Code configuration:**
-```json
-{
-  "mcpServers": {
-    "google-slides-dev": {
-      "command": "node",
-      "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"]
-    }
-  }
-}
+**Claude Code registration:**
+```bash
+claude mcp add google-slides-dev -- node /Users/michaelpolansky/Development/google-slides/dist/index.js
 ```
 
 ### 2. GitHub (Source of Truth)
@@ -162,17 +157,11 @@ git pull origin main
 ### After Release
 
 ```bash
-# Update local Claude configs to use the new version
+# Update local Claude registration to use the new version
 # Option A: Keep using local development version (no change needed)
 
 # Option B: Use published npm version
-# Update config to:
-{
-  "google-slides": {
-    "command": "npx",
-    "args": ["-y", "google-slides-mcp@1.0.1"]
-  }
-}
+claude mcp add google-slides -- npx -y google-slides-mcp@1.0.1
 ```
 
 ## Configuration Strategies
@@ -180,49 +169,20 @@ git pull origin main
 ### Development vs Production
 
 **During Active Development:**
-```json
-{
-  "google-slides-dev": {
-    "command": "node",
-    "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"]
-  }
-}
+```bash
+claude mcp add google-slides-dev -- node /Users/michaelpolansky/Development/google-slides/dist/index.js
 ```
 - Fast iteration
 - See changes immediately after rebuild
 - Full debugging access
 
-**For Stable Use:**
-```json
-{
-  "google-slides": {
-    "command": "npx",
-    "args": ["-y", "google-slides-mcp@1.0.0"]
-  }
-}
+**For Stable Use (after npm publish):**
+```bash
+claude mcp add google-slides -- npx -y google-slides-mcp@1.0.0
 ```
 - Versioned and stable
 - Easy to rollback
 - Cleaner installation
-
-**Both at Once (Recommended):**
-```json
-{
-  "google-slides-dev": {
-    "command": "node",
-    "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"],
-    "description": "Development version"
-  },
-  "google-slides": {
-    "command": "npx",
-    "args": ["-y", "google-slides-mcp@1.0.0"],
-    "description": "Stable version"
-  }
-}
-```
-- Use `-dev` for testing changes
-- Use stable version for real work
-- Compare behavior between versions
 
 ## Private npm Registry
 

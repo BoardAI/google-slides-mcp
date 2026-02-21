@@ -5,85 +5,90 @@ Complete guide to setting up Google Slides MCP Server.
 ## Step 1: Create Google Cloud Project
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Note your project ID
+2. Create a new project or select an existing one
 
-## Step 2: Enable Google Slides API
+## Step 2: Enable APIs
 
-1. In Cloud Console, go to "APIs & Services" > "Library"
-2. Search for "Google Slides API"
-3. Click "Enable"
+1. Go to **APIs & Services → Library**
+2. Search for and enable **Google Slides API**
+3. Search for and enable **Google Drive API**
 
-## Step 3: Create OAuth 2.0 Credentials
+## Step 3: Configure OAuth Consent Screen
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth client ID"
-3. If prompted, configure OAuth consent screen:
-   - User Type: External (for personal use) or Internal (for organization)
-   - App name: "Google Slides MCP"
+1. Go to **APIs & Services → OAuth consent screen**
+2. User Type: **External** (for personal use)
+3. Fill in:
+   - App name: `Google Slides MCP`
    - User support email: your email
-   - Scopes: Add `https://www.googleapis.com/auth/presentations`
-   - Test users: Add your email
-4. Application type: "Desktop app"
-5. Name: "Google Slides MCP Client"
-6. Click "Create"
-7. Download JSON credentials
+   - Developer contact email: your email
+4. Click **Save and Continue** through the Scopes step (no scopes needed — they are requested at runtime)
+5. Add your Google account email as a **Test user**
+6. Click **Save and Continue**
 
-## Step 4: Configure Credentials
+## Step 4: Create OAuth 2.0 Credentials
 
-1. Copy downloaded JSON to `config/credentials.json`:
+1. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+2. Application type: **Desktop app**
+3. Name: `Google Slides MCP Client`
+4. Click **Create**
+5. Download the JSON file
+
+## Step 5: Configure Credentials
+
+Copy the downloaded JSON to `config/credentials.json`:
 
 ```bash
 cp ~/Downloads/client_secret_*.json config/credentials.json
 ```
 
-2. Verify format matches:
+The file should look like:
 
 ```json
 {
-  "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
-  "client_secret": "YOUR_CLIENT_SECRET",
-  "redirect_uris": ["http://localhost:3000/callback"]
+  "installed": {
+    "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "redirect_uris": ["http://localhost"]
+  }
 }
 ```
 
-## Step 5: First Run & Authentication
-
-1. Build and run:
+## Step 6: Build and Register
 
 ```bash
+npm install
 npm run build
-node dist/index.js
+
+# Register with Claude Code
+claude mcp add google-slides -- node /absolute/path/to/google-slides/dist/index.js
 ```
 
-2. Browser opens automatically to Google OAuth consent screen
-3. Sign in and grant permissions
-4. Browser shows "Authentication Successful"
-5. Tokens saved to `~/.config/google-slides-mcp/tokens.json`
+Or for Claude Desktop, add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "google-slides": {
+      "command": "node",
+      "args": ["/absolute/path/to/google-slides/dist/index.js"]
+    }
+  }
+}
+```
+
+## Step 7: First Run & Authentication
+
+On first use, a browser window opens for the Google OAuth consent screen. Sign in and grant access. Tokens are cached at `~/.config/google-slides-mcp/tokens.json` — subsequent starts are instant.
 
 ## Troubleshooting
 
-### Browser doesn't open automatically
-
-If automatic browser open fails, manually visit the displayed URL.
-
-### "redirect_uri_mismatch" error
-
-Ensure OAuth credentials include `http://localhost:3000/callback` as an authorized redirect URI:
-
-1. Go to Cloud Console > Credentials
-2. Edit your OAuth client ID
-3. Add `http://localhost:3000/callback` to "Authorized redirect URIs"
-4. Save and retry
-
 ### "Access blocked: This app's request is invalid"
 
-OAuth consent screen not properly configured:
+Your email is not listed as a Test user on the OAuth consent screen:
 
-1. Go to "OAuth consent screen" in Cloud Console
-2. Add required scopes: `https://www.googleapis.com/auth/presentations`
-3. Add your email to "Test users" if using External user type
-4. Save and retry
+1. Go to **OAuth consent screen** in Cloud Console
+2. Add your email to **Test users**
+3. Save and retry
 
 ### Token refresh fails
 
@@ -91,19 +96,28 @@ Delete stored tokens and re-authenticate:
 
 ```bash
 rm ~/.config/google-slides-mcp/tokens.json
-node dist/index.js
 ```
 
-### Permission denied accessing presentation
+Then restart Claude Code / Claude Desktop to trigger a new OAuth flow.
 
-Check presentation sharing settings in Google Slides:
-- Open presentation in browser
-- Click "Share"
-- Ensure your authenticated account has edit access
+### "Permission denied" accessing a presentation
+
+The authenticated account does not have edit access:
+
+1. Open the presentation in Google Slides
+2. Click **Share**
+3. Add your authenticated account with **Editor** access
+
+### Re-authenticate after adding Drive scopes
+
+If you need to reset authentication entirely:
+
+```bash
+rm ~/.config/google-slides-mcp/tokens.json
+```
 
 ## Security Notes
 
-- Keep `config/credentials.json` private (in `.gitignore`)
+- Keep `config/credentials.json` private — it is in `.gitignore`
 - Tokens stored with 0600 permissions (owner read/write only)
 - Never commit credentials or tokens to version control
-- Use separate credentials for development vs production

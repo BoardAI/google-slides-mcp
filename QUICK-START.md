@@ -1,124 +1,79 @@
 # Quick Start Guide
 
+## Prerequisites
+
+- Node.js 18+
+- A Google account
+- Google OAuth credentials (see `docs/SETUP.md`)
+
 ## Installation
 
-### For Development (Fastest Iteration)
-
 ```bash
-# Point Claude Code to your local copy
-# Edit: ~/.config/claude-code/config.json
-{
-  "mcpServers": {
-    "google-slides-dev": {
-      "command": "node",
-      "args": ["/Users/michaelpolansky/Development/google-slides/dist/index.js"]
-    }
-  }
-}
-
-# Start development server
-npm run dev
+git clone <repo-url>
+cd google-slides
+npm install
+npm run build
 ```
 
-### For Production (Stable)
+## Register with Claude Code
 
 ```bash
-# Install from npm
-npm install -g google-slides-mcp
+claude mcp add google-slides -- node /absolute/path/to/google-slides/dist/index.js
+```
 
-# Or use via Claude Desktop config
+Or for Claude Desktop, add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
 {
   "mcpServers": {
     "google-slides": {
-      "command": "npx",
-      "args": ["-y", "google-slides-mcp"]
+      "command": "node",
+      "args": ["/absolute/path/to/google-slides/dist/index.js"]
     }
   }
 }
 ```
 
-## Daily Commands
+## Authenticate
+
+On first use a browser window opens for Google OAuth. Sign in and approve access. Tokens are cached at `~/.config/google-slides-mcp/tokens.json`.
+
+## Try It
+
+Ask Claude:
+
+```
+Create a new presentation called "My First Presentation"
+```
+
+```
+List my recent presentations
+```
+
+```
+Add a slide to presentation <id> with a text box saying "Hello World"
+```
+
+## Development Commands
 
 ```bash
-# Check sync status
-npm run status
-
-# Work on code
-npm run dev              # Auto-rebuild on changes
-npm test                 # Run tests
-
-# Sync to GitHub (end of day or when done with feature)
-npm run sync "feat: what I built"
-
-# Release new version (when ready for production)
-npm run release patch    # Bug fixes (1.0.0 → 1.0.1)
-npm run release minor    # New features (1.0.0 → 1.1.0)
-npm run release major    # Breaking changes (1.0.0 → 2.0.0)
+npm test          # Run 269 unit tests
+npm run build     # Compile TypeScript → dist/
+npm run dev       # Watch mode (auto-rebuild on save)
+npm run clean     # Remove dist/
 ```
 
 ## File Locations
 
 ```
-Development:  ~/Development/google-slides/
-GitHub:       https://github.com/michaelpolansky/google-slides-mcp
-npm:          https://www.npmjs.com/package/google-slides-mcp
-Credentials:  ~/Development/google-slides/config/credentials.json
-Tokens:       ~/.config/google-slides-mcp/tokens.json
-```
-
-## Configuration
-
-### Claude Code
-`~/.config/claude-code/config.json`
-
-### Claude Desktop
-`~/Library/Application Support/Claude/claude_desktop_config.json`
-
-## First Time Setup
-
-```bash
-# 1. Clone from GitHub
-git clone https://github.com/michaelpolansky/google-slides-mcp.git
-cd google-slides-mcp
-
-# 2. Install dependencies
-npm install
-
-# 3. Build
-npm run build
-
-# 4. Add Google credentials
-cp config/credentials.example.json config/credentials.json
-# Edit config/credentials.json with your OAuth credentials
-
-# 5. Configure Claude to use it (see Installation above)
-
-# 6. Restart Claude Desktop/Code
-
-# 7. Test it
-# Ask Claude: "Create a test presentation"
-```
-
-## Troubleshooting
-
-```bash
-# Tests failing?
-npm test
-
-# Build not working?
-npm run clean && npm run build
-
-# Out of sync with GitHub?
-npm run status
-git pull origin main
-
-# npm version outdated?
-npm run release patch
+Source code:   src/
+Built output:  dist/
+Credentials:   config/credentials.json
+Tokens:        ~/.config/google-slides-mcp/tokens.json
 ```
 
 ## More Information
 
-- Full workflow guide: `WORKFLOW.md`
-- Setup instructions: `docs/SETUP.md`
-- API reference: `docs/API.md`
-- Design documents: `docs/plans/`
+- Full setup: `docs/SETUP.md`
+- All 43 tools: `docs/API.md`
+- Development workflow: `WORKFLOW.md`
