@@ -15,6 +15,10 @@ const SCOPES = [
   'https://www.googleapis.com/auth/drive.metadata.readonly',
 ];
 
+// For Desktop app OAuth, Google allows any localhost port even if only
+// "http://localhost" is registered. We use port 3000 with /callback path.
+const REDIRECT_URI = 'http://localhost:3000/callback';
+
 export class OAuthManager {
   private oauth2Client: OAuth2Client;
   private tokenStore: TokenStore;
@@ -23,7 +27,7 @@ export class OAuthManager {
     this.oauth2Client = new OAuth2Client(
       credentials.client_id,
       credentials.client_secret,
-      credentials.redirect_uris[0]
+      REDIRECT_URI
     );
     this.tokenStore = tokenStore || new TokenStore();
   }
