@@ -3,6 +3,7 @@ import { rgbToHex, modalValue } from '../../../src/tools/presentation/design-sys
 import { extractTypography } from '../../../src/tools/presentation/design-system.js';
 import { extractLists } from '../../../src/tools/presentation/design-system.js';
 import { extractShapeStyles } from '../../../src/tools/presentation/design-system.js';
+import { extractTableStyles } from '../../../src/tools/presentation/design-system.js';
 
 describe('rgbToHex', () => {
   it('converts float RGB to uppercase hex', () => {
@@ -142,5 +143,49 @@ describe('extractShapeStyles', () => {
   it('converts border weight from EMU to points', () => {
     const slides = [{ pageElements: makeShape('#FFFFFF', '#000000', 1) }];
     expect(extractShapeStyles(slides)[0].borderWidthPt).toBe(1);
+  });
+});
+
+describe('extractTableStyles', () => {
+  const makeCell = (hex: string) => ({
+    tableCellProperties: {
+      tableCellBackgroundFill: { solidFill: { color: { rgbColor: { red: parseInt(hex.slice(1,3),16)/255, green: parseInt(hex.slice(3,5),16)/255, blue: parseInt(hex.slice(5,7),16)/255 } } } },
+      contentAlignment: 'TOP',
+      contentInsets: { top: { magnitude: 5, unit: 'PT' }, bottom: { magnitude: 5, unit: 'PT' }, left: { magnitude: 5, unit: 'PT' }, right: { magnitude: 5, unit: 'PT' } },
+    },
+  });
+
+  it('returns found=false when no tables', () => {
+    expect(extractTableStyles([{ pageElements: [] }])).toEqual({ found: false });
+  });
+
+  it('extracts header and row fills, alternate fill, border, and column width', () => {
+    const slides = [{
+      pageElements: [{
+        table: {
+          rows: 3,
+          columns: 2,
+          tableRows: [
+            { tableCells: [makeCell('#1A73E8'), makeCell('#1A73E8')], rowHeight: { magnitude: 380000, unit: 'EMU' } },
+            { tableCells: [makeCell('#FFFFFF'), makeCell('#FFFFFF')], rowHeight: { magnitude: 380000, unit: 'EMU' } },
+            { tableCells: [makeCell('#F8F9FA'), makeCell('#F8F9FA')], rowHeight: { magnitude: 380000, unit: 'EMU' } },
+          ],
+          tableColumns: [
+            { columnWidth: { magnitude: 1524000, unit: 'EMU' } },
+            { columnWidth: { magnitude: 1524000, unit: 'EMU' } },
+          ],
+          horizontalBorderRows: [
+            { tableBorderCells: [{ tableBorderProperties: { borderFill: { solidFill: { color: { rgbColor: { red: 0.855, green: 0.855, blue: 0.855 } } } }, weight: { magnitude: 12700, unit: 'EMU' }, dashStyle: 'SOLID' } }] },
+          ],
+        },
+      }],
+    }];
+    const result = extractTableStyles(slides);
+    expect(result.found).toBe(true);
+    expect(result.headerFill).toBe('#1A73E8');
+    expect(result.rowFill).toBe('#FFFFFF');
+    expect(result.alternateFill).toBe('#F8F9FA');
+    expect(result.borderWidthPt).toBe(1);
+    expect(result.defaultColumnWidthPt).toBe(120);
   });
 });

@@ -220,3 +220,67 @@ export function extractShapeStyles(slides: any[]): ShapeStyleEntry[] {
     .slice(0, 5)
     .map(({ entry, count }) => ({ ...entry, count }));
 }
+
+// ─── Table styles ─────────────────────────────────────────────────────────────
+
+interface TableStyles {
+  found: boolean;
+  headerFill?: string;
+  rowFill?: string;
+  alternateFill?: string;
+  borderColor?: string;
+  borderWidthPt?: number;
+  dashStyle?: string;
+  defaultColumnWidthPt?: number;
+  defaultRowHeightPt?: number;
+  cellPaddingPt?: Insets;
+}
+
+export function extractTableStyles(slides: any[]): TableStyles {
+  for (const slide of slides) {
+    for (const el of slide.pageElements ?? []) {
+      if (!el.table) continue;
+      const table = el.table;
+      const rows: any[] = table.tableRows ?? [];
+      const cols: any[] = table.tableColumns ?? [];
+
+      function cellFill(rowIdx: number): string | undefined {
+        const cell = rows[rowIdx]?.tableCells?.[0];
+        const rgb = cell?.tableCellProperties?.tableCellBackgroundFill?.solidFill?.color?.rgbColor;
+        return rgb ? rgbToHex(rgb.red, rgb.green, rgb.blue) : undefined;
+      }
+
+      const headerFill = cellFill(0);
+      const rowFill = cellFill(1);
+      const altFill = cellFill(2);
+      const alternateFill = altFill !== rowFill ? altFill : undefined;
+
+      const borderCell = table.horizontalBorderRows?.[0]?.tableBorderCells?.[0]?.tableBorderProperties;
+      const borderRgb = borderCell?.borderFill?.solidFill?.color?.rgbColor;
+      const borderColor = borderRgb ? rgbToHex(borderRgb.red, borderRgb.green, borderRgb.blue) : undefined;
+      const borderWidthPt = borderCell?.weight?.magnitude != null
+        ? emuToPoints(borderCell.weight.magnitude)
+        : undefined;
+      const dashStyle: string | undefined = borderCell?.dashStyle ?? undefined;
+
+      const defaultColumnWidthPt = cols[0]?.columnWidth?.magnitude != null
+        ? emuToPoints(cols[0].columnWidth.magnitude)
+        : undefined;
+
+      const defaultRowHeightPt = rows[0]?.rowHeight?.magnitude != null
+        ? emuToPoints(rows[0].rowHeight.magnitude)
+        : undefined;
+
+      const ci = rows[0]?.tableCells?.[0]?.tableCellProperties?.contentInsets;
+      const cellPaddingPt: Insets | undefined = ci ? {
+        top: ci.top?.magnitude ?? 0,
+        right: ci.right?.magnitude ?? 0,
+        bottom: ci.bottom?.magnitude ?? 0,
+        left: ci.left?.magnitude ?? 0,
+      } : undefined;
+
+      return { found: true, headerFill, rowFill, alternateFill, borderColor, borderWidthPt, dashStyle, defaultColumnWidthPt, defaultRowHeightPt, cellPaddingPt };
+    }
+  }
+  return { found: false };
+}
