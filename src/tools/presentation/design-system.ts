@@ -384,3 +384,64 @@ export function extractLayout(pageSize: any, slides: any[]): LayoutResult {
     verticalRhythmPt: modalValue(gaps),
   };
 }
+
+// ─── Main tool ────────────────────────────────────────────────────────────────
+
+export interface PresentationGetDesignSystemParams {
+  presentationId: string;
+}
+
+export async function presentationGetDesignSystemTool(
+  client: SlidesClient,
+  params: PresentationGetDesignSystemParams
+): Promise<ToolResponse> {
+  try {
+    const presentation = await client.getPresentation(params.presentationId);
+
+    const masters: any[] = (presentation as any).masters ?? [];
+    const layouts: any[] = (presentation as any).layouts ?? [];
+    const slides: any[] = presentation.slides ?? [];
+
+    const typography = extractTypography(layouts, masters);
+    const lists = extractLists(slides, masters, layouts);
+    const shapeStyles = { common: extractShapeStyles(slides) };
+    const tableStyles = extractTableStyles(slides);
+    const colors = extractColors(slides);
+    const layout = extractLayout((presentation as any).pageSize, slides);
+
+    const designSystem = {
+      slideSize: { widthPt: layout.widthPt, heightPt: layout.heightPt },
+      typography,
+      lists,
+      shapeStyles,
+      tableStyles,
+      colors,
+      layout: {
+        marginLeftPt: layout.marginLeftPt,
+        marginTopPt: layout.marginTopPt,
+        marginRightPt: layout.marginRightPt,
+        marginBottomPt: layout.marginBottomPt,
+        verticalRhythmPt: layout.verticalRhythmPt,
+      },
+    };
+
+    const summary = [
+      `Design system for "${presentation.title}" (${slides.length} slides)`,
+      `Slide size: ${layout.widthPt}×${layout.heightPt}pt`,
+      `Typography roles found: ${Object.keys(typography).join(', ') || 'none'}`,
+      `List types found: ${Object.keys(lists).join(', ') || 'none'}`,
+      `Shape style patterns: ${shapeStyles.common.length}`,
+      `Tables found: ${tableStyles.found}`,
+      `Colors — fills: ${colors.fills.length}, text: ${colors.text.length}, backgrounds: ${colors.backgrounds.length}, borders: ${colors.borders.length}`,
+      '',
+      JSON.stringify(designSystem, null, 2),
+    ].join('\n');
+
+    return createSuccessResponse(summary, designSystem);
+  } catch (error: any) {
+    if (error instanceof SlidesAPIError) {
+      return createErrorResponse('api', error.message, error.details, error.retryable);
+    }
+    return createErrorResponse('api', error.message);
+  }
+}

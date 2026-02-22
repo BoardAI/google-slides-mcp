@@ -240,3 +240,48 @@ describe('extractLayout', () => {
     expect(layout.verticalRhythmPt).toBeNull();
   });
 });
+import { presentationGetDesignSystemTool } from '../../../src/tools/presentation/design-system.js';
+import { SlidesClient } from '../../../src/google/client.js';
+import { jest, beforeEach } from '@jest/globals';
+
+describe('presentationGetDesignSystemTool', () => {
+  let mockClient: jest.Mocked<SlidesClient>;
+
+  beforeEach(() => {
+    mockClient = { getPresentation: jest.fn() } as any;
+    (mockClient.getPresentation as jest.MockedFunction<any>).mockResolvedValue({
+      presentationId: 'pres-123',
+      title: 'Test Presentation',
+      pageSize: { width: { magnitude: 9144000, unit: 'EMU' }, height: { magnitude: 5143500, unit: 'EMU' } },
+      masters: [],
+      layouts: [],
+      slides: [],
+    });
+  });
+
+  it('calls getPresentation once and returns a success response', async () => {
+    const result = await presentationGetDesignSystemTool(mockClient, { presentationId: 'pres-123' });
+    expect(mockClient.getPresentation).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+  });
+
+  it('returns structured design system data with all required keys', async () => {
+    const result = await presentationGetDesignSystemTool(mockClient, { presentationId: 'pres-123' });
+    if (result.success) {
+      expect(result.data).toHaveProperty('slideSize');
+      expect(result.data).toHaveProperty('typography');
+      expect(result.data).toHaveProperty('lists');
+      expect(result.data).toHaveProperty('shapeStyles');
+      expect(result.data).toHaveProperty('tableStyles');
+      expect(result.data).toHaveProperty('colors');
+      expect(result.data).toHaveProperty('layout');
+    }
+  });
+
+  it('handles API errors gracefully', async () => {
+    const { SlidesAPIError } = await import('../../../src/google/types.js');
+    (mockClient.getPresentation as jest.MockedFunction<any>).mockRejectedValue(new SlidesAPIError('Not found', 404));
+    const result = await presentationGetDesignSystemTool(mockClient, { presentationId: 'missing' });
+    expect(result.success).toBe(false);
+  });
+});
