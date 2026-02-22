@@ -189,3 +189,54 @@ describe('extractTableStyles', () => {
     expect(result.defaultColumnWidthPt).toBe(120);
   });
 });
+import { extractColors, extractLayout } from '../../../src/tools/presentation/design-system.js';
+
+describe('extractColors', () => {
+  it('collects and deduplicates fill, text, background, and border colors', () => {
+    const slides = [{
+      pageProperties: { pageBackgroundFill: { solidFill: { color: { rgbColor: { red: 0.102, green: 0.451, blue: 0.914 } } } } },
+      pageElements: [{
+        shape: {
+          shapeProperties: {
+            shapeBackgroundFill: { solidFill: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } } },
+            outline: { outlineFill: { solidFill: { color: { rgbColor: { red: 0.855, green: 0.855, blue: 0.855 } } } } },
+          },
+          text: {
+            textElements: [{
+              textRun: { style: { foregroundColor: { rgbColor: { red: 0.125, green: 0.129, blue: 0.141 } } } },
+            }],
+          },
+        },
+      }],
+    }];
+    const colors = extractColors(slides);
+    expect(colors.backgrounds.length).toBeGreaterThan(0);
+    expect(colors.fills).toContain('#FFFFFF');
+    expect(colors.borders.length).toBeGreaterThan(0);
+    expect(colors.text.length).toBeGreaterThan(0);
+  });
+});
+
+describe('extractLayout', () => {
+  it('converts page size from EMU to points', () => {
+    const pageSize = { width: { magnitude: 9144000, unit: 'EMU' }, height: { magnitude: 5143500, unit: 'EMU' } };
+    const slides = [{
+      pageElements: [
+        { transform: { translateX: 457200, translateY: 342900 }, size: { width: { magnitude: 7620000 }, height: { magnitude: 1143000 } } },
+      ],
+    }];
+    const layout = extractLayout(pageSize, slides);
+    expect(layout.widthPt).toBe(720);
+    expect(layout.heightPt).toBe(405);
+    expect(layout.marginLeftPt).toBe(36);
+    expect(layout.marginTopPt).toBe(27);
+  });
+
+  it('returns 0 margins when no elements', () => {
+    const pageSize = { width: { magnitude: 9144000 }, height: { magnitude: 5143500 } };
+    const layout = extractLayout(pageSize, []);
+    expect(layout.marginLeftPt).toBe(0);
+    expect(layout.marginTopPt).toBe(0);
+    expect(layout.verticalRhythmPt).toBeNull();
+  });
+});

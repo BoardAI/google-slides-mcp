@@ -284,3 +284,103 @@ export function extractTableStyles(slides: any[]): TableStyles {
   }
   return { found: false };
 }
+
+// ─── Colors ───────────────────────────────────────────────────────────────────
+
+interface ColorsResult {
+  fills: string[];
+  text: string[];
+  backgrounds: string[];
+  borders: string[];
+}
+
+export function extractColors(slides: any[]): ColorsResult {
+  const fills = new Set<string>();
+  const text = new Set<string>();
+  const backgrounds = new Set<string>();
+  const borders = new Set<string>();
+
+  function addRgb(set: Set<string>, rgb: any) {
+    if (rgb) set.add(rgbToHex(rgb.red, rgb.green, rgb.blue));
+  }
+
+  for (const slide of slides) {
+    addRgb(backgrounds, slide.pageProperties?.pageBackgroundFill?.solidFill?.color?.rgbColor);
+
+    for (const el of slide.pageElements ?? []) {
+      if (el.shape) {
+        const sp = el.shape.shapeProperties ?? {};
+        addRgb(fills, sp.shapeBackgroundFill?.solidFill?.color?.rgbColor);
+        addRgb(borders, sp.outline?.outlineFill?.solidFill?.color?.rgbColor);
+        for (const te of el.shape.text?.textElements ?? []) {
+          addRgb(text, te.textRun?.style?.foregroundColor?.rgbColor);
+        }
+      }
+      if (el.line) {
+        addRgb(borders, el.line.lineProperties?.lineFill?.solidFill?.color?.rgbColor);
+      }
+    }
+  }
+
+  const unique = (s: Set<string>) => [...s].filter(Boolean);
+  return { fills: unique(fills), text: unique(text), backgrounds: unique(backgrounds), borders: unique(borders) };
+}
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
+interface LayoutResult {
+  widthPt: number;
+  heightPt: number;
+  marginLeftPt: number;
+  marginTopPt: number;
+  marginRightPt: number;
+  marginBottomPt: number;
+  verticalRhythmPt: number | null;
+}
+
+export function extractLayout(pageSize: any, slides: any[]): LayoutResult {
+  const widthPt = emuToPoints(pageSize?.width?.magnitude);
+  const heightPt = emuToPoints(pageSize?.height?.magnitude);
+
+  let minX = Infinity, minY = Infinity, maxRight = 0, maxBottom = 0;
+  const gaps: number[] = [];
+
+  for (const slide of slides) {
+    const elements = (slide.pageElements ?? [])
+      .filter((el: any) => el.transform?.translateX != null);
+
+    const sorted = [...elements].sort((a: any, b: any) =>
+      (a.transform?.translateY ?? 0) - (b.transform?.translateY ?? 0)
+    );
+
+    for (let i = 0; i < sorted.length; i++) {
+      const el = sorted[i];
+      const x = emuToPoints(el.transform?.translateX ?? 0);
+      const y = emuToPoints(el.transform?.translateY ?? 0);
+      const w = emuToPoints(el.size?.width?.magnitude ?? 0);
+      const h = emuToPoints(el.size?.height?.magnitude ?? 0);
+
+      if (x > 0) minX = Math.min(minX, x);
+      if (y > 0) minY = Math.min(minY, y);
+      if (x + w > 0) maxRight = Math.max(maxRight, x + w);
+      if (y + h > 0) maxBottom = Math.max(maxBottom, y + h);
+
+      if (i > 0) {
+        const prevEl = sorted[i - 1];
+        const prevBottom = emuToPoints((prevEl.transform?.translateY ?? 0) + (prevEl.size?.height?.magnitude ?? 0));
+        const gap = y - prevBottom;
+        if (gap > 0) gaps.push(Math.round(gap));
+      }
+    }
+  }
+
+  return {
+    widthPt,
+    heightPt,
+    marginLeftPt: isFinite(minX) ? minX : 0,
+    marginTopPt: isFinite(minY) ? minY : 0,
+    marginRightPt: widthPt - maxRight > 0 ? widthPt - maxRight : 0,
+    marginBottomPt: heightPt - maxBottom > 0 ? heightPt - maxBottom : 0,
+    verticalRhythmPt: modalValue(gaps),
+  };
+}
