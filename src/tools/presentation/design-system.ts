@@ -104,7 +104,7 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
   const maxFreeformOccurrences = Math.max(
     0,
     ...entries
-      .filter(e => [...e.roles].every(r => r.startsWith('freeform')))
+      .filter(e => [...e.roles].every(r => r === 'freeform'))
       .map(e => e.occurrences),
   );
 
