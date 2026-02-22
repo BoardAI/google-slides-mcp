@@ -182,26 +182,53 @@ export function extractLists(slides: any[], masters: any[], layouts: any[]): Lis
   return result;
 }
 
-// ─── Shape styles ─────────────────────────────────────────────────────────────
+// ─── Annotated shape styles ───────────────────────────────────────────────────
 
 interface Insets { top: number; right: number; bottom: number; left: number }
 
-interface ShapeStyleEntry {
-  fillColor?: string;
+const DARK_FILLS = new Set(['#060C14', '#280818', '#5B001F']);
+const SLATE_BORDER = '#8598A7';
+const NEAR_WHITE_MIN = 0xF0;
+
+function isNearWhite(hex: string): boolean {
+  return (
+    parseInt(hex.slice(1, 3), 16) >= NEAR_WHITE_MIN &&
+    parseInt(hex.slice(3, 5), 16) >= NEAR_WHITE_MIN &&
+    parseInt(hex.slice(5, 7), 16) >= NEAR_WHITE_MIN
+  );
+}
+
+function isDarkColor(hex: string): boolean {
+  const avg = (parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16) + parseInt(hex.slice(5, 7), 16)) / 3;
+  return avg < 100;
+}
+
+function inferShapeRole(fillColor: string | null, borderColor: string | undefined): string {
+  if (!fillColor) return borderColor === SLATE_BORDER ? 'slate-ghost' : 'ghost';
+  if (DARK_FILLS.has(fillColor)) return 'dark-panel';
+  if (fillColor === AMBER_FILL) return 'callout';
+  if (isNearWhite(fillColor)) {
+    if (borderColor && isDarkColor(borderColor)) return 'card';
+    return 'subtle-card';
+  }
+  return 'shape';
+}
+
+export interface AnnotatedShapeStyle {
+  fillColor: string | null;
   borderColor?: string;
   borderWidthPt?: number;
   dashStyle?: string;
+  shapeType?: string;
   shadowBlurPt?: number;
   shadowColor?: string;
-  shadowOffsetXPt?: number;
-  shadowOffsetYPt?: number;
   verticalAlignment?: string;
-  paddingPt?: Insets;
   count: number;
+  inferredRole: string;
 }
 
-export function extractShapeStyles(slides: any[]): ShapeStyleEntry[] {
-  const groups = new Map<string, { entry: Omit<ShapeStyleEntry, 'count'>; count: number }>();
+export function extractAnnotatedShapeStyles(slides: any[]): Record<string, AnnotatedShapeStyle> {
+  const groups = new Map<string, { style: Omit<AnnotatedShapeStyle, 'count' | 'inferredRole'>; count: number }>();
 
   for (const slide of slides) {
     for (const el of slide.pageElements ?? []) {
@@ -209,56 +236,43 @@ export function extractShapeStyles(slides: any[]): ShapeStyleEntry[] {
       const sp = el.shape.shapeProperties ?? {};
 
       const fillRgb = sp.shapeBackgroundFill?.solidFill?.color?.rgbColor;
-      const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : undefined;
+      const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : null;
 
       const outlineRgb = sp.outline?.outlineFill?.solidFill?.color?.rgbColor;
       const borderColor = outlineRgb ? rgbToHex(outlineRgb.red, outlineRgb.green, outlineRgb.blue) : undefined;
-      const borderWidthPt = sp.outline?.weight?.magnitude != null
-        ? emuToPoints(sp.outline.weight.magnitude)
-        : undefined;
-      const dashStyle: string | undefined = sp.outline?.dashStyle ?? undefined;
 
-      if (!fillColor && !borderColor) continue;
+      if (fillColor === null && !borderColor) continue;
+
+      const borderWidthPt = sp.outline?.weight?.magnitude != null
+        ? emuToPoints(sp.outline.weight.magnitude) : undefined;
+      const dashStyle: string | undefined = sp.outline?.dashStyle ?? undefined;
+      const shapeType: string | undefined = el.shape.shapeType ?? undefined;
 
       const shadow = sp.shadow;
       const shadowRgb = shadow?.color?.rgbColor;
       const shadowColor = shadowRgb ? rgbToHex(shadowRgb.red, shadowRgb.green, shadowRgb.blue) : undefined;
       const shadowBlurPt = shadow?.blurRadius?.magnitude != null
-        ? emuToPoints(shadow.blurRadius.magnitude)
-        : undefined;
-      const shadowOffsetXPt = shadow?.transform?.translateX != null
-        ? emuToPoints(shadow.transform.translateX)
-        : undefined;
-      const shadowOffsetYPt = shadow?.transform?.translateY != null
-        ? emuToPoints(shadow.transform.translateY)
-        : undefined;
-
-      const ci = sp.contentInsets;
-      const paddingPt: Insets | undefined = ci ? {
-        top: ci.top?.magnitude ?? 0,
-        right: ci.right?.magnitude ?? 0,
-        bottom: ci.bottom?.magnitude ?? 0,
-        left: ci.left?.magnitude ?? 0,
-      } : undefined;
-
+        ? emuToPoints(shadow.blurRadius.magnitude) : undefined;
       const verticalAlignment: string | undefined = sp.contentAlignment ?? undefined;
 
-      const entry = { fillColor, borderColor, borderWidthPt, dashStyle, shadowBlurPt, shadowColor, shadowOffsetXPt, shadowOffsetYPt, verticalAlignment, paddingPt };
-      const fingerprint = JSON.stringify(entry);
+      const style = { fillColor, borderColor, borderWidthPt, dashStyle, shapeType, shadowColor, shadowBlurPt, verticalAlignment };
+      const fingerprint = JSON.stringify(style);
 
       const existing = groups.get(fingerprint);
-      if (existing) {
-        existing.count++;
-      } else {
-        groups.set(fingerprint, { entry, count: 1 });
-      }
+      if (existing) { existing.count++; }
+      else { groups.set(fingerprint, { style, count: 1 }); }
     }
   }
 
-  return Array.from(groups.values())
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-    .map(({ entry, count }) => ({ ...entry, count }));
+  const result: Record<string, AnnotatedShapeStyle> = {};
+  for (const { style, count } of [...groups.values()].sort((a, b) => b.count - a.count)) {
+    const role = inferShapeRole(style.fillColor, style.borderColor);
+    let key = role;
+    let suffix = 2;
+    while (key in result) key = `${role}-${suffix++}`;
+    result[key] = { ...style, count, inferredRole: role };
+  }
+  return result;
 }
 
 // ─── Table styles ─────────────────────────────────────────────────────────────
@@ -556,7 +570,7 @@ export async function presentationGetDesignSystemTool(
 
     const typography = extractTypeScale(slides);
     const lists = extractLists(slides, masters, layouts);
-    const shapeStyles = { common: extractShapeStyles(slides) };
+    const shapeStyles = extractAnnotatedShapeStyles(slides);
     const tableStyles = extractTableStyles(slides);
     const colors = extractColors(slides);
     const layout = extractLayout((presentation as any).pageSize, slides);
@@ -583,7 +597,7 @@ export async function presentationGetDesignSystemTool(
       `Slide size: ${layout.widthPt}×${layout.heightPt}pt`,
       `Type scale entries: ${typography.length}`,
       `List types found: ${Object.keys(lists).join(', ') || 'none'}`,
-      `Shape style patterns: ${shapeStyles.common.length}`,
+      `Shape style patterns: ${Object.keys(shapeStyles).length}`,
       `Tables found: ${tableStyles.found}`,
       `Colors — fills: ${colors.fills.length}, text: ${colors.text.length}, backgrounds: ${colors.backgrounds.length}, borders: ${colors.borders.length}`,
       '',
