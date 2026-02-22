@@ -11,6 +11,9 @@ export { presentationListTool, PresentationListParams } from './list.js';
 export { presentationExportTool, PresentationExportParams } from './export.js';
 export { createFromTemplateTool, CreateFromTemplateParams } from './create-from-template.js';
 export { presentationRenameTool, PresentationRenameParams } from './rename.js';
+export { presentationOutlineTool, PresentationOutlineParams } from './outline.js';
+export { presentationDuplicateTool, PresentationDuplicateParams } from './duplicate.js';
+export { presentationGetDesignSystemTool, PresentationGetDesignSystemParams } from './design-system.js';
 
 export interface CreatePresentationParams {
   title: string;
@@ -66,7 +69,11 @@ export async function getPresentationTool(
         presentationId: presentation.presentationId,
         title: presentation.title,
         slideCount,
-        slides: presentation.slides,
+        slides: (presentation.slides ?? []).map((s, i) => ({
+          index: i,
+          slideId: s.objectId,
+          elementCount: s.pageElements?.length ?? 0,
+        })),
       }
     );
   } catch (error: any) {
