@@ -366,6 +366,78 @@ export function extractColors(slides: any[]): ColorsResult {
   return { fills: unique(fills), text: unique(text), backgrounds: unique(backgrounds), borders: unique(borders) };
 }
 
+// ─── Column grid ──────────────────────────────────────────────────────────────
+
+export interface ColumnEntry { xPt: number; widthPt: number; }
+
+export interface ColumnGrid {
+  columnCount: number;
+  columns: ColumnEntry[];
+  gutterPt: number | null;
+}
+
+export function extractColumnGrid(slides: any[], _widthPt: number): ColumnGrid {
+  const ROUND_TO = 4;     // pt — absorb sub-pixel jitter
+  const MERGE_WITHIN = 8; // pt — merge nearby X values into one column
+  const MIN_FREQ = 2;     // minimum appearances to count as a column
+
+  // Map from bucket key → { rawXs, widths }
+  const xBuckets = new Map<number, { rawXs: number[]; widths: number[] }>();
+
+  for (const slide of slides) {
+    for (const el of slide.pageElements ?? []) {
+      if (!el.transform?.translateX) continue;
+      const rawX = emuToPoints(el.transform.translateX);
+      const bucketKey = Math.round(rawX / ROUND_TO) * ROUND_TO;
+      const wPt = emuToPoints(el.size?.width?.magnitude ?? 0);
+      if (bucketKey <= 0 || wPt <= 0) continue;
+      const bucket = xBuckets.get(bucketKey) ?? { rawXs: [], widths: [] };
+      bucket.rawXs.push(rawX);
+      bucket.widths.push(wPt);
+      xBuckets.set(bucketKey, bucket);
+    }
+  }
+
+  const candidates = [...xBuckets.entries()]
+    .filter(([, { widths }]) => widths.length >= MIN_FREQ)
+    .sort(([a], [b]) => a - b)
+    .map(([, { rawXs, widths }]) => ({
+      xPt: Math.round(rawXs.reduce((a, b) => a + b, 0) / rawXs.length),
+      widths,
+    }));
+
+  if (candidates.length === 0) return { columnCount: 1, columns: [], gutterPt: null };
+
+  // Merge X values within MERGE_WITHIN pt
+  const merged: Array<{ xPt: number; widths: number[] }> = [];
+  for (const { xPt: x, widths } of candidates) {
+    const last = merged[merged.length - 1];
+    if (last && x - last.xPt <= MERGE_WITHIN) {
+      last.widths.push(...widths);
+    } else {
+      merged.push({ xPt: x, widths });
+    }
+  }
+
+  if (merged.length <= 1) return { columnCount: 1, columns: [], gutterPt: null };
+
+  const columns: ColumnEntry[] = merged.map(({ xPt, widths }) => ({
+    xPt,
+    widthPt: modalValue(widths) ?? widths[0],
+  }));
+
+  const gutters: number[] = [];
+  for (let i = 1; i < columns.length; i++) {
+    const g = columns[i].xPt - (columns[i - 1].xPt + columns[i - 1].widthPt);
+    if (g > 0) gutters.push(g);
+  }
+  const gutterPt = gutters.length > 0
+    ? Math.round(gutters.reduce((a, b) => a + b, 0) / gutters.length)
+    : null;
+
+  return { columnCount: columns.length, columns, gutterPt };
+}
+
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 interface LayoutResult {

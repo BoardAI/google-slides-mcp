@@ -6,6 +6,7 @@ import {
   extractShapeStyles,
   extractTableStyles,
   extractTypeScale,
+  extractColumnGrid,
   extractColors,
   extractLayout,
   presentationGetDesignSystemTool,
@@ -132,6 +133,45 @@ describe('extractTypeScale', () => {
     const result = extractTypeScale(slides);
     expect(result.find(e => e.sizePt === 18)?.context).toBe('body');
     expect(result.find(e => e.sizePt === 12)?.context).toBe('supporting text');
+  });
+});
+
+describe('extractColumnGrid', () => {
+  const P = 12700;
+  const makeEl = (xPt: number, wPt: number) => ({
+    transform: { translateX: xPt * P, translateY: 10 * P },
+    size: { width: { magnitude: wPt * P }, height: { magnitude: 20 * P } },
+  });
+
+  it('detects a three-column layout from repeated X positions', () => {
+    const slide = { pageElements: [makeEl(17, 210), makeEl(255, 210), makeEl(493, 210)] };
+    const result = extractColumnGrid([slide, slide], 720);
+    expect(result.columnCount).toBe(3);
+    expect(result.columns).toHaveLength(3);
+    expect(result.columns[0].xPt).toBe(17);
+    expect(result.columns[1].xPt).toBe(255);
+  });
+
+  it('returns columnCount 1 when all elements share the same X', () => {
+    const slide = { pageElements: [makeEl(17, 686), makeEl(17, 686), makeEl(17, 686)] };
+    const result = extractColumnGrid([slide, slide], 720);
+    expect(result.columnCount).toBe(1);
+    expect(result.columns).toEqual([]);
+    expect(result.gutterPt).toBeNull();
+  });
+
+  it('merges X values within 8pt into a single column', () => {
+    const slide = { pageElements: [makeEl(17, 210), makeEl(20, 210)] };
+    const result = extractColumnGrid([slide, slide], 720);
+    expect(result.columnCount).toBe(1);
+  });
+
+  it('computes gutter between two columns', () => {
+    // col1: x=17 w=200 → right edge=217; col2: x=245 → gutter=28
+    const slide = { pageElements: [makeEl(17, 200), makeEl(245, 200)] };
+    const result = extractColumnGrid([slide, slide], 720);
+    expect(result.columnCount).toBe(2);
+    expect(result.gutterPt).toBe(28);
   });
 });
 
