@@ -141,3 +141,82 @@ export function extractLists(slides: any[], masters: any[], layouts: any[]): Lis
 
   return result;
 }
+
+// ─── Shape styles ─────────────────────────────────────────────────────────────
+
+interface Insets { top: number; right: number; bottom: number; left: number }
+
+interface ShapeStyleEntry {
+  fillColor?: string;
+  borderColor?: string;
+  borderWidthPt?: number;
+  dashStyle?: string;
+  shadowBlurPt?: number;
+  shadowColor?: string;
+  shadowOffsetXPt?: number;
+  shadowOffsetYPt?: number;
+  verticalAlignment?: string;
+  paddingPt?: Insets;
+  count: number;
+}
+
+export function extractShapeStyles(slides: any[]): ShapeStyleEntry[] {
+  const groups = new Map<string, { entry: Omit<ShapeStyleEntry, 'count'>; count: number }>();
+
+  for (const slide of slides) {
+    for (const el of slide.pageElements ?? []) {
+      if (!el.shape) continue;
+      const sp = el.shape.shapeProperties ?? {};
+
+      const fillRgb = sp.shapeBackgroundFill?.solidFill?.color?.rgbColor;
+      const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : undefined;
+
+      const outlineRgb = sp.outline?.outlineFill?.solidFill?.color?.rgbColor;
+      const borderColor = outlineRgb ? rgbToHex(outlineRgb.red, outlineRgb.green, outlineRgb.blue) : undefined;
+      const borderWidthPt = sp.outline?.weight?.magnitude != null
+        ? emuToPoints(sp.outline.weight.magnitude)
+        : undefined;
+      const dashStyle: string | undefined = sp.outline?.dashStyle ?? undefined;
+
+      if (!fillColor && !borderColor) continue;
+
+      const shadow = sp.shadow;
+      const shadowRgb = shadow?.color?.rgbColor;
+      const shadowColor = shadowRgb ? rgbToHex(shadowRgb.red, shadowRgb.green, shadowRgb.blue) : undefined;
+      const shadowBlurPt = shadow?.blurRadius?.magnitude != null
+        ? emuToPoints(shadow.blurRadius.magnitude)
+        : undefined;
+      const shadowOffsetXPt = shadow?.transform?.translateX != null
+        ? emuToPoints(shadow.transform.translateX)
+        : undefined;
+      const shadowOffsetYPt = shadow?.transform?.translateY != null
+        ? emuToPoints(shadow.transform.translateY)
+        : undefined;
+
+      const ci = sp.contentInsets;
+      const paddingPt: Insets | undefined = ci ? {
+        top: ci.top?.magnitude ?? 0,
+        right: ci.right?.magnitude ?? 0,
+        bottom: ci.bottom?.magnitude ?? 0,
+        left: ci.left?.magnitude ?? 0,
+      } : undefined;
+
+      const verticalAlignment: string | undefined = sp.contentAlignment ?? undefined;
+
+      const entry = { fillColor, borderColor, borderWidthPt, dashStyle, shadowBlurPt, shadowColor, shadowOffsetXPt, shadowOffsetYPt, verticalAlignment, paddingPt };
+      const fingerprint = JSON.stringify(entry);
+
+      const existing = groups.get(fingerprint);
+      if (existing) {
+        existing.count++;
+      } else {
+        groups.set(fingerprint, { entry, count: 1 });
+      }
+    }
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+    .map(({ entry, count }) => ({ ...entry, count }));
+}
