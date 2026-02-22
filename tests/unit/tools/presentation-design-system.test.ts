@@ -245,6 +245,18 @@ describe('extractAnnotatedShapeStyles', () => {
     const result = extractAnnotatedShapeStyles(slides);
     expect(Object.keys(result)).toHaveLength(0);
   });
+
+  it('assigns role "subtle-card" (not "card") to near-white fill + saturated green (#00FF00) border', () => {
+    // Pure green has simple avg=(0+255+0)/3=85 < 100, so the naive average wrongly
+    // classifies it as dark and returns 'card'. With the luminance-weighted formula
+    // L = 0.299*0 + 0.587*255 + 0.114*0 ≈ 150, green is NOT dark (≥100),
+    // so near-white fill + green border → 'subtle-card', not 'card'.
+    const slides = [{ pageElements: makeShape('#FFFFFF', '#00FF00', 2) }];
+    const result = extractAnnotatedShapeStyles(slides);
+    expect(result['subtle-card']).toBeDefined();
+    expect(result['subtle-card'].inferredRole).toBe('subtle-card');
+    expect(result['card']).toBeUndefined();
+  });
 });
 
 describe('extractLists', () => {

@@ -199,8 +199,11 @@ function isNearWhite(hex: string): boolean {
 }
 
 function isDarkColor(hex: string): boolean {
-  const avg = (parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16) + parseInt(hex.slice(5, 7), 16)) / 3;
-  return avg < 100;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance < 100;
 }
 
 function inferShapeRole(fillColor: string | null, borderColor: string | undefined): string {
@@ -241,6 +244,7 @@ export function extractAnnotatedShapeStyles(slides: any[]): Record<string, Annot
       const outlineRgb = sp.outline?.outlineFill?.solidFill?.color?.rgbColor;
       const borderColor = outlineRgb ? rgbToHex(outlineRgb.red, outlineRgb.green, outlineRgb.blue) : undefined;
 
+      // Skip decorative shadow-only shapes (no fill, no border — not stylistically fingerprint-able)
       if (fillColor === null && !borderColor) continue;
 
       const borderWidthPt = sp.outline?.weight?.magnitude != null
