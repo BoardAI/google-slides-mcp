@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { rgbToHex, modalValue } from '../../../src/tools/presentation/design-system.js';
+import { extractTypography } from '../../../src/tools/presentation/design-system.js';
 
 describe('rgbToHex', () => {
   it('converts float RGB to uppercase hex', () => {
@@ -19,5 +20,52 @@ describe('modalValue', () => {
   });
   it('returns null for empty array', () => {
     expect(modalValue([])).toBeNull();
+  });
+});
+
+describe('extractTypography', () => {
+  it('extracts title style from layout placeholder', () => {
+    const layouts = [{
+      pageElements: [{
+        shape: {
+          placeholder: { type: 'TITLE' },
+          text: {
+            textElements: [
+              { paragraphMarker: { paragraphStyle: { lineSpacing: 115, spaceAbove: { magnitude: 0, unit: 'PT' }, spaceBelow: { magnitude: 8, unit: 'PT' } } } },
+              { textRun: { content: 'Title', style: { fontFamily: 'Google Sans', fontSize: { magnitude: 40, unit: 'PT' }, bold: false, foregroundColor: { rgbColor: { red: 0.125, green: 0.129, blue: 0.141 } } } } },
+            ],
+          },
+        },
+      }],
+    }];
+    const result = extractTypography(layouts, []);
+    expect(result.title).toEqual({
+      fontFamily: 'Google Sans',
+      fontSizePt: 40,
+      bold: false,
+      color: '#202124',
+      lineSpacing: 115,
+      spaceAbovePt: 0,
+      spaceBelowPt: 8,
+    });
+  });
+
+  it('falls back to master if layout has no text style', () => {
+    const masters = [{
+      pageElements: [{
+        shape: {
+          placeholder: { type: 'BODY' },
+          text: {
+            textElements: [
+              { paragraphMarker: { paragraphStyle: { lineSpacing: 150 } } },
+              { textRun: { content: 'body', style: { fontFamily: 'Arial', fontSize: { magnitude: 18, unit: 'PT' } } } },
+            ],
+          },
+        },
+      }],
+    }];
+    const result = extractTypography([], masters);
+    expect(result.body?.fontFamily).toBe('Arial');
+    expect(result.body?.fontSizePt).toBe(18);
   });
 });

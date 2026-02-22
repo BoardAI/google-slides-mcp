@@ -24,3 +24,63 @@ export function modalValue(values: number[]): number | null {
   for (const [v, count] of freq) if (count > bestCount) { best = v; bestCount = count; }
   return best;
 }
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+
+const TYPOGRAPHY_PLACEHOLDERS = ['TITLE', 'CENTERED_TITLE', 'SUBTITLE', 'BODY'] as const;
+type PlaceholderRole = typeof TYPOGRAPHY_PLACEHOLDERS[number];
+
+interface TypographyStyle {
+  fontFamily?: string;
+  fontSizePt?: number;
+  bold?: boolean;
+  color?: string;
+  lineSpacing?: number;
+  spaceAbovePt?: number;
+  spaceBelowPt?: number;
+}
+
+type TypographyMap = Partial<Record<Lowercase<PlaceholderRole>, TypographyStyle>>;
+
+export function extractTypography(layouts: any[], masters: any[]): TypographyMap {
+  const result: TypographyMap = {};
+
+  function processPages(pages: any[]) {
+    for (const page of pages) {
+      for (const el of page.pageElements ?? []) {
+        const ph = el.shape?.placeholder?.type as PlaceholderRole | undefined;
+        if (!ph || !(TYPOGRAPHY_PLACEHOLDERS as readonly string[]).includes(ph)) continue;
+
+        const key = ph.toLowerCase() as Lowercase<PlaceholderRole>;
+        if (result[key]) continue;
+
+        const textElements = el.shape?.text?.textElements ?? [];
+
+        const paraMarker = textElements.find((te: any) => te.paragraphMarker?.paragraphStyle);
+        const paraStyle = paraMarker?.paragraphMarker?.paragraphStyle ?? {};
+
+        const textRun = textElements.find((te: any) => te.textRun?.style?.fontFamily || te.textRun?.style?.fontSize);
+        const runStyle = textRun?.textRun?.style ?? {};
+
+        if (!runStyle.fontFamily && !runStyle.fontSize) continue;
+
+        const rgb = runStyle.foregroundColor?.rgbColor;
+
+        result[key] = {
+          fontFamily: runStyle.fontFamily ?? undefined,
+          fontSizePt: runStyle.fontSize?.magnitude ?? undefined,
+          bold: runStyle.bold ?? false,
+          color: rgb ? rgbToHex(rgb.red, rgb.green, rgb.blue) : undefined,
+          lineSpacing: paraStyle.lineSpacing ?? undefined,
+          spaceAbovePt: paraStyle.spaceAbove?.magnitude ?? undefined,
+          spaceBelowPt: paraStyle.spaceBelow?.magnitude ?? undefined,
+        };
+      }
+    }
+  }
+
+  processPages(layouts);
+  processPages(masters);
+
+  return result;
+}
