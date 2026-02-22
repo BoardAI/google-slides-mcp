@@ -494,12 +494,14 @@ describe('presentationGetDesignSystemTool', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toHaveProperty('slideSize');
-      expect(result.data).toHaveProperty('typography');
+      expect(result.data).toHaveProperty('typeScale');      // was: typography
       expect(result.data).toHaveProperty('lists');
       expect(result.data).toHaveProperty('shapeStyles');
       expect(result.data).toHaveProperty('tableStyles');
       expect(result.data).toHaveProperty('colors');
       expect(result.data).toHaveProperty('layout');
+      expect(result.data.layout).toHaveProperty('grid');    // new
+      expect(result.data).not.toHaveProperty('typography'); // removed
     }
   });
 

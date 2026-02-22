@@ -572,16 +572,17 @@ export async function presentationGetDesignSystemTool(
     const layouts: any[] = (presentation as any).layouts ?? [];
     const slides: any[] = presentation.slides ?? [];
 
-    const typography = extractTypeScale(slides);
+    const typeScale = extractTypeScale(slides);
     const lists = extractLists(slides, masters, layouts);
     const shapeStyles = extractAnnotatedShapeStyles(slides);
     const tableStyles = extractTableStyles(slides);
     const colors = extractColors(slides);
     const layout = extractLayout((presentation as any).pageSize, slides);
+    const grid = extractColumnGrid(slides, layout.widthPt);
 
     const designSystem = {
       slideSize: { widthPt: layout.widthPt, heightPt: layout.heightPt },
-      typography,
+      typeScale,
       lists,
       shapeStyles,
       tableStyles,
@@ -593,16 +594,18 @@ export async function presentationGetDesignSystemTool(
         marginBottomPt: layout.marginBottomPt,
         spacingScale: layout.spacingScale,
         placeholderSpacing: layout.placeholderSpacing,
+        grid,
       },
     };
 
     const summary = [
       `Design system for "${presentation.title}" (${slides.length} slides)`,
       `Slide size: ${layout.widthPt}×${layout.heightPt}pt`,
-      `Type scale entries: ${typography.length}`,
+      `Type scale entries: ${typeScale.length}`,
       `List types found: ${Object.keys(lists).join(', ') || 'none'}`,
-      `Shape style patterns: ${Object.keys(shapeStyles).length}`,
+      `Shape style roles: ${Object.keys(shapeStyles).join(', ') || 'none'}`,
       `Tables found: ${tableStyles.found}`,
+      `Grid: ${grid.columnCount} column(s)`,
       `Colors — fills: ${colors.fills.length}, text: ${colors.text.length}, backgrounds: ${colors.backgrounds.length}, borders: ${colors.borders.length}`,
       '',
       JSON.stringify(designSystem, null, 2),
