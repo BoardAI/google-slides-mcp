@@ -25,64 +25,100 @@ export function modalValue(values: number[]): number | null {
   return best;
 }
 
-// ─── Typography ───────────────────────────────────────────────────────────────
+// ─── Type scale ───────────────────────────────────────────────────────────────
 
-const TYPOGRAPHY_PLACEHOLDERS = ['TITLE', 'CENTERED_TITLE', 'SUBTITLE', 'BODY'] as const;
-type PlaceholderRole = typeof TYPOGRAPHY_PLACEHOLDERS[number];
+const AMBER_FILL = '#F5B73B';
 
-interface TypographyStyle {
-  fontFamily?: string;
-  fontSizePt?: number;
-  bold?: boolean;
+export interface TypeScaleEntry {
+  sizePt: number;
+  fontFamily: string;
+  bold: boolean;
   color?: string;
-  lineSpacing?: number;
-  spaceAbovePt?: number;
-  spaceBelowPt?: number;
+  occurrences: number;
+  roles: string[];
+  context: string;
 }
 
-type TypographyMap = Partial<Record<Lowercase<PlaceholderRole>, TypographyStyle>>;
+function inferTypeContext(
+  roles: string[],
+  occurrences: number,
+  maxFreeformOccurrences: number,
+): string {
+  if (roles.includes('placeholder:TITLE') || roles.includes('placeholder:CENTERED_TITLE')) return 'slide title';
+  if (roles.includes('placeholder:SUBTITLE')) return 'subtitle';
+  if (roles.includes('placeholder:BODY')) return 'body text';
+  if (roles.some(r => r === 'freeform:amber')) return 'callout label';
+  if (occurrences === maxFreeformOccurrences && maxFreeformOccurrences > 0) return 'body';
+  return 'supporting text';
+}
 
-export function extractTypography(layouts: any[], masters: any[]): TypographyMap {
-  const result: TypographyMap = {};
+export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
+  const groups = new Map<string, {
+    sizePt: number;
+    fontFamily: string;
+    bold: boolean;
+    color?: string;
+    occurrences: number;
+    roles: Set<string>;
+  }>();
 
-  function processPages(pages: any[]) {
-    for (const page of pages) {
-      for (const el of page.pageElements ?? []) {
-        const ph = el.shape?.placeholder?.type as PlaceholderRole | undefined;
-        if (!ph || !(TYPOGRAPHY_PLACEHOLDERS as readonly string[]).includes(ph)) continue;
+  for (const slide of slides) {
+    for (const el of slide.pageElements ?? []) {
+      if (!el.shape) continue;
 
-        const key = ph.toLowerCase() as Lowercase<PlaceholderRole>;
-        if (result[key]) continue;
+      const placeholderType: string | undefined = el.shape?.placeholder?.type;
+      const fillRgb = el.shape.shapeProperties?.shapeBackgroundFill?.solidFill?.color?.rgbColor;
+      const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : undefined;
 
-        const textElements = el.shape?.text?.textElements ?? [];
+      for (const te of el.shape.text?.textElements ?? []) {
+        const run = te.textRun;
+        if (!run?.content?.trim()) continue;
 
-        const paraMarker = textElements.find((te: any) => te.paragraphMarker?.paragraphStyle);
-        const paraStyle = paraMarker?.paragraphMarker?.paragraphStyle ?? {};
+        const style = run.style ?? {};
+        const sizePt: number = style.fontSize?.magnitude ?? 0;
+        const fontFamily: string = style.fontFamily ?? style.weightedFontFamily?.fontFamily ?? '';
+        const bold: boolean = style.bold ?? false;
+        const rgb = style.foregroundColor?.rgbColor;
+        const color: string | undefined = rgb ? rgbToHex(rgb.red, rgb.green, rgb.blue) : undefined;
 
-        const textRun = textElements.find((te: any) => te.textRun?.style?.fontFamily || te.textRun?.style?.fontSize);
-        const runStyle = textRun?.textRun?.style ?? {};
+        if (!sizePt || !fontFamily) continue;
 
-        if (!runStyle.fontFamily && !runStyle.fontSize) continue;
+        const role = placeholderType
+          ? `placeholder:${placeholderType}`
+          : fillColor === AMBER_FILL ? 'freeform:amber' : 'freeform';
 
-        const rgb = runStyle.foregroundColor?.rgbColor;
-
-        result[key] = {
-          fontFamily: runStyle.fontFamily ?? undefined,
-          fontSizePt: runStyle.fontSize?.magnitude ?? undefined,
-          bold: runStyle.bold ?? false,
-          color: rgb ? rgbToHex(rgb.red, rgb.green, rgb.blue) : undefined,
-          lineSpacing: paraStyle.lineSpacing ?? undefined,
-          spaceAbovePt: paraStyle.spaceAbove?.magnitude ?? undefined,
-          spaceBelowPt: paraStyle.spaceBelow?.magnitude ?? undefined,
-        };
+        const fingerprint = `${sizePt}|${fontFamily}|${bold}|${color ?? ''}`;
+        const existing = groups.get(fingerprint);
+        if (existing) {
+          existing.occurrences++;
+          existing.roles.add(role);
+        } else {
+          groups.set(fingerprint, { sizePt, fontFamily, bold, color, occurrences: 1, roles: new Set([role]) });
+        }
       }
     }
   }
 
-  processPages(layouts);
-  processPages(masters);
+  const entries = Array.from(groups.values()).filter(e => e.occurrences >= 2);
 
-  return result;
+  const maxFreeformOccurrences = Math.max(
+    0,
+    ...entries
+      .filter(e => [...e.roles].every(r => r.startsWith('freeform')))
+      .map(e => e.occurrences),
+  );
+
+  return entries
+    .map(e => ({
+      sizePt: e.sizePt,
+      fontFamily: e.fontFamily,
+      bold: e.bold,
+      color: e.color,
+      occurrences: e.occurrences,
+      roles: [...e.roles],
+      context: inferTypeContext([...e.roles], e.occurrences, maxFreeformOccurrences),
+    }))
+    .sort((a, b) => b.sizePt - a.sizePt);
 }
 
 // ─── Lists ────────────────────────────────────────────────────────────────────
@@ -335,7 +371,29 @@ interface LayoutResult {
   marginTopPt: number;
   marginRightPt: number;
   marginBottomPt: number;
-  verticalRhythmPt: number | null;
+  spacingScale: number[];
+  placeholderSpacing: Record<string, number>;
+}
+
+function gapBetween(prev: any, curr: any): number {
+  const prevBottom = emuToPoints((prev.transform?.translateY ?? 0) + (prev.size?.height?.magnitude ?? 0));
+  const y = emuToPoints(curr.transform?.translateY ?? 0);
+  return Math.round(y - prevBottom);
+}
+
+function buildSpacingScale(gaps: number[]): number[] {
+  const MIN_GAP_PT = 2;
+  const MAX_SCALE_SIZE = 8;
+  const freq = new Map<number, number>();
+  for (const gap of gaps) {
+    if (gap < MIN_GAP_PT) continue;
+    freq.set(gap, (freq.get(gap) ?? 0) + 1);
+  }
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_SCALE_SIZE)
+    .map(([pt]) => pt)
+    .sort((a, b) => a - b);
 }
 
 export function extractLayout(pageSize: any, slides: any[]): LayoutResult {
@@ -343,35 +401,52 @@ export function extractLayout(pageSize: any, slides: any[]): LayoutResult {
   const heightPt = emuToPoints(pageSize?.height?.magnitude);
 
   let minX = Infinity, minY = Infinity, maxRight = 0, maxBottom = 0;
-  const gaps: number[] = [];
+  const freeformGaps: number[] = [];
+  const placeholderGapLists = new Map<string, number[]>();
+
+  const isPlaceholder = (el: any) => el.shape?.placeholder?.type != null;
+  const byY = (a: any, b: any) => (a.transform?.translateY ?? 0) - (b.transform?.translateY ?? 0);
 
   for (const slide of slides) {
     const elements = (slide.pageElements ?? [])
       .filter((el: any) => el.transform?.translateX != null);
 
-    const sorted = [...elements].sort((a: any, b: any) =>
-      (a.transform?.translateY ?? 0) - (b.transform?.translateY ?? 0)
-    );
-
-    for (let i = 0; i < sorted.length; i++) {
-      const el = sorted[i];
+    // Margins from all elements
+    for (const el of elements) {
       const x = emuToPoints(el.transform?.translateX ?? 0);
       const y = emuToPoints(el.transform?.translateY ?? 0);
       const w = emuToPoints(el.size?.width?.magnitude ?? 0);
       const h = emuToPoints(el.size?.height?.magnitude ?? 0);
-
       if (x > 0) minX = Math.min(minX, x);
       if (y > 0) minY = Math.min(minY, y);
       if (x + w > 0) maxRight = Math.max(maxRight, x + w);
       if (y + h > 0) maxBottom = Math.max(maxBottom, y + h);
+    }
 
-      if (i > 0) {
-        const prevEl = sorted[i - 1];
-        const prevBottom = emuToPoints((prevEl.transform?.translateY ?? 0) + (prevEl.size?.height?.magnitude ?? 0));
-        const gap = y - prevBottom;
-        if (gap > 0) gaps.push(Math.round(gap));
+    // Placeholder gaps: tracked by semantic type pair
+    const placeholders = elements.filter(isPlaceholder).sort(byY);
+    for (let i = 1; i < placeholders.length; i++) {
+      const gap = gapBetween(placeholders[i - 1], placeholders[i]);
+      if (gap > 0) {
+        const key = `${placeholders[i - 1].shape.placeholder.type}→${placeholders[i].shape.placeholder.type}`;
+        const list = placeholderGapLists.get(key) ?? [];
+        list.push(gap);
+        placeholderGapLists.set(key, list);
       }
     }
+
+    // Freeform gaps: all non-placeholder elements
+    const freeforms = elements.filter((el: any) => !isPlaceholder(el)).sort(byY);
+    for (let i = 1; i < freeforms.length; i++) {
+      const gap = gapBetween(freeforms[i - 1], freeforms[i]);
+      if (gap > 0) freeformGaps.push(gap);
+    }
+  }
+
+  const placeholderSpacing: Record<string, number> = {};
+  for (const [key, list] of placeholderGapLists) {
+    const modal = modalValue(list);
+    if (modal !== null) placeholderSpacing[key] = modal;
   }
 
   return {
@@ -381,7 +456,8 @@ export function extractLayout(pageSize: any, slides: any[]): LayoutResult {
     marginTopPt: isFinite(minY) ? minY : 0,
     marginRightPt: widthPt - maxRight > 0 ? widthPt - maxRight : 0,
     marginBottomPt: heightPt - maxBottom > 0 ? heightPt - maxBottom : 0,
-    verticalRhythmPt: modalValue(gaps),
+    spacingScale: buildSpacingScale(freeformGaps),
+    placeholderSpacing,
   };
 }
 
@@ -402,7 +478,7 @@ export async function presentationGetDesignSystemTool(
     const layouts: any[] = (presentation as any).layouts ?? [];
     const slides: any[] = presentation.slides ?? [];
 
-    const typography = extractTypography(layouts, masters);
+    const typography = extractTypeScale(slides);
     const lists = extractLists(slides, masters, layouts);
     const shapeStyles = { common: extractShapeStyles(slides) };
     const tableStyles = extractTableStyles(slides);
@@ -421,14 +497,15 @@ export async function presentationGetDesignSystemTool(
         marginTopPt: layout.marginTopPt,
         marginRightPt: layout.marginRightPt,
         marginBottomPt: layout.marginBottomPt,
-        verticalRhythmPt: layout.verticalRhythmPt,
+        spacingScale: layout.spacingScale,
+        placeholderSpacing: layout.placeholderSpacing,
       },
     };
 
     const summary = [
       `Design system for "${presentation.title}" (${slides.length} slides)`,
       `Slide size: ${layout.widthPt}×${layout.heightPt}pt`,
-      `Typography roles found: ${Object.keys(typography).join(', ') || 'none'}`,
+      `Type scale entries: ${typography.length}`,
       `List types found: ${Object.keys(lists).join(', ') || 'none'}`,
       `Shape style patterns: ${shapeStyles.common.length}`,
       `Tables found: ${tableStyles.found}`,

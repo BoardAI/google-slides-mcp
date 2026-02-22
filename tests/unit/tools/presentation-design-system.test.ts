@@ -1,6 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
 import { rgbToHex, modalValue } from '../../../src/tools/presentation/design-system.js';
-import { extractTypography } from '../../../src/tools/presentation/design-system.js';
 import { extractLists } from '../../../src/tools/presentation/design-system.js';
 import { extractShapeStyles } from '../../../src/tools/presentation/design-system.js';
 import { extractTableStyles } from '../../../src/tools/presentation/design-system.js';
@@ -26,50 +25,97 @@ describe('modalValue', () => {
   });
 });
 
-describe('extractTypography', () => {
-  it('extracts title style from layout placeholder', () => {
-    const layouts = [{
-      pageElements: [{
-        shape: {
-          placeholder: { type: 'TITLE' },
-          text: {
-            textElements: [
-              { paragraphMarker: { paragraphStyle: { lineSpacing: 115, spaceAbove: { magnitude: 0, unit: 'PT' }, spaceBelow: { magnitude: 8, unit: 'PT' } } } },
-              { textRun: { content: 'Title', style: { fontFamily: 'Google Sans', fontSize: { magnitude: 40, unit: 'PT' }, bold: false, foregroundColor: { rgbColor: { red: 0.125, green: 0.129, blue: 0.141 } } } } },
-            ],
+import { extractTypeScale } from '../../../src/tools/presentation/design-system.js';
+
+describe('extractTypeScale', () => {
+  const P = 12700; // EMU per point
+
+  const makeTextEl = (
+    sizePt: number,
+    fontFamily: string,
+    bold: boolean,
+    colorHex: string | null,
+    placeholderType?: string,
+    fillHex?: string,
+  ) => ({
+    transform: { translateX: P, translateY: 100 * P },
+    size: { width: { magnitude: 100 * P }, height: { magnitude: 20 * P } },
+    shape: {
+      ...(placeholderType ? { placeholder: { type: placeholderType } } : {}),
+      shapeProperties: fillHex ? {
+        shapeBackgroundFill: { solidFill: { color: { rgbColor: {
+          red: parseInt(fillHex.slice(1, 3), 16) / 255,
+          green: parseInt(fillHex.slice(3, 5), 16) / 255,
+          blue: parseInt(fillHex.slice(5, 7), 16) / 255,
+        }}}},
+      } : {},
+      text: {
+        textElements: [{
+          textRun: {
+            content: 'Sample text',
+            style: {
+              fontSize: { magnitude: sizePt },
+              fontFamily,
+              bold,
+              ...(colorHex ? { foregroundColor: { rgbColor: {
+                red: parseInt(colorHex.slice(1, 3), 16) / 255,
+                green: parseInt(colorHex.slice(3, 5), 16) / 255,
+                blue: parseInt(colorHex.slice(5, 7), 16) / 255,
+              }}} : {}),
+            },
           },
-        },
-      }],
-    }];
-    const result = extractTypography(layouts, []);
-    expect(result.title).toEqual({
-      fontFamily: 'Google Sans',
-      fontSizePt: 40,
-      bold: false,
-      color: '#202124',
-      lineSpacing: 115,
-      spaceAbovePt: 0,
-      spaceBelowPt: 8,
-    });
+        }],
+      },
+    },
   });
 
-  it('falls back to master if layout has no text style', () => {
-    const masters = [{
-      pageElements: [{
-        shape: {
-          placeholder: { type: 'BODY' },
-          text: {
-            textElements: [
-              { paragraphMarker: { paragraphStyle: { lineSpacing: 150 } } },
-              { textRun: { content: 'body', style: { fontFamily: 'Arial', fontSize: { magnitude: 18, unit: 'PT' } } } },
-            ],
-          },
-        },
-      }],
-    }];
-    const result = extractTypography([], masters);
-    expect(result.body?.fontFamily).toBe('Arial');
-    expect(result.body?.fontSizePt).toBe(18);
+  it('extracts placeholder text with correct role and context', () => {
+    const el = makeTextEl(26, 'Figtree', false, null, 'TITLE');
+    const slides = [{ pageElements: [el] }, { pageElements: [el] }];
+    const result = extractTypeScale(slides);
+    expect(result).toHaveLength(1);
+    expect(result[0].sizePt).toBe(26);
+    expect(result[0].roles).toContain('placeholder:TITLE');
+    expect(result[0].context).toBe('slide title');
+  });
+
+  it('assigns freeform:amber role and callout label for text inside amber shapes', () => {
+    const el = makeTextEl(12, 'Figtree', true, '#280818', undefined, '#F5B73B');
+    const slides = [{ pageElements: [el] }, { pageElements: [el] }];
+    const result = extractTypeScale(slides);
+    expect(result[0].roles).toContain('freeform:amber');
+    expect(result[0].context).toBe('callout label');
+  });
+
+  it('filters styles appearing fewer than 2 times as noise', () => {
+    const el = makeTextEl(14, 'Figtree', false, null);
+    const slides = [{ pageElements: [el] }]; // 1 occurrence only
+    const result = extractTypeScale(slides);
+    expect(result).toHaveLength(0);
+  });
+
+  it('sorts entries largest font size first', () => {
+    const small = makeTextEl(12, 'Figtree', false, null);
+    const large = makeTextEl(28, 'Figtree', false, null);
+    const slides = [
+      { pageElements: [small, large] },
+      { pageElements: [small, large] },
+    ];
+    const result = extractTypeScale(slides);
+    expect(result[0].sizePt).toBeGreaterThan(result[result.length - 1].sizePt);
+  });
+
+  it('labels the most frequent freeform style as body', () => {
+    const body = makeTextEl(18, 'Figtree', false, null);
+    const caption = makeTextEl(12, 'Figtree', false, null);
+    // body: 4 occurrences, caption: 2
+    const slides = [
+      { pageElements: [body, body, caption] },
+      { pageElements: [body, body, caption] },
+    ];
+    const result = extractTypeScale(slides);
+    expect(result.find(e => e.sizePt === 18)?.context).toBe('body');
+    expect(result.find(e => e.sizePt === 12)?.context).toBe('supporting text');
   });
 });
 
@@ -218,6 +264,17 @@ describe('extractColors', () => {
 });
 
 describe('extractLayout', () => {
+  const P = 12700; // EMU per point
+  const makeEl = (yPt: number, hPt: number) => ({
+    transform: { translateX: P, translateY: yPt * P },
+    size: { width: { magnitude: P * 100 }, height: { magnitude: hPt * P } },
+  });
+  const makePH = (type: string, yPt: number, hPt: number) => ({
+    transform: { translateX: P, translateY: yPt * P },
+    size: { width: { magnitude: P * 100 }, height: { magnitude: hPt * P } },
+    shape: { placeholder: { type } },
+  });
+
   it('converts page size from EMU to points', () => {
     const pageSize = { width: { magnitude: 9144000, unit: 'EMU' }, height: { magnitude: 5143500, unit: 'EMU' } };
     const slides = [{
@@ -232,12 +289,75 @@ describe('extractLayout', () => {
     expect(layout.marginTopPt).toBe(27);
   });
 
-  it('returns 0 margins when no elements', () => {
+  it('returns empty spacingScale when no elements', () => {
     const pageSize = { width: { magnitude: 9144000 }, height: { magnitude: 5143500 } };
     const layout = extractLayout(pageSize, []);
     expect(layout.marginLeftPt).toBe(0);
     expect(layout.marginTopPt).toBe(0);
-    expect(layout.verticalRhythmPt).toBeNull();
+    expect(layout.spacingScale).toEqual([]);
+  });
+
+  it('returns multiple spacing values sorted ascending by size', () => {
+    // Slide 1: gaps of 8, 8 (elements at 0/h20, 28/h20, 56/h20)
+    // Slide 2: gaps of 16, 16 (elements at 0/h20, 36/h20, 72/h20)
+    const slides = [
+      { pageElements: [makeEl(0, 20), makeEl(28, 20), makeEl(56, 20)] },
+      { pageElements: [makeEl(0, 20), makeEl(36, 20), makeEl(72, 20)] },
+    ];
+    const layout = extractLayout({}, slides);
+    expect(layout.spacingScale).toEqual([8, 16]);
+  });
+
+  it('filters sub-2pt gaps as noise', () => {
+    // el1 bottom=20, el2 y=21 → 1pt gap (noise), el3 y=49 → 8pt gap
+    const slides = [{
+      pageElements: [makeEl(0, 20), makeEl(21, 20), makeEl(49, 20)],
+    }];
+    const layout = extractLayout({}, slides);
+    expect(layout.spacingScale).toEqual([8]);
+  });
+
+  it('includes at most 8 spacing values', () => {
+    // Create 10 distinct gap sizes (3pt–12pt), each appearing once
+    const elements: any[] = [];
+    let y = 0;
+    for (let gap = 3; gap <= 12; gap++) {
+      elements.push(makeEl(y, 20));
+      y += 20 + gap;
+    }
+    const layout = extractLayout({}, [{ pageElements: elements }]);
+    expect(layout.spacingScale.length).toBeLessThanOrEqual(8);
+  });
+
+  it('returns empty placeholderSpacing when no placeholder elements', () => {
+    const slides = [{ pageElements: [makeEl(0, 20), makeEl(28, 20)] }];
+    const layout = extractLayout({}, slides);
+    expect(layout.placeholderSpacing).toEqual({});
+  });
+
+  it('extracts gap between consecutive placeholder types as a TYPE→TYPE key', () => {
+    // TITLE at y=0/h=20 → bottom=20; BODY at y=36/h=20 → gap=16pt
+    const slides = [{ pageElements: [makePH('TITLE', 0, 20), makePH('BODY', 36, 20)] }];
+    const layout = extractLayout({}, slides);
+    expect(layout.placeholderSpacing).toEqual({ 'TITLE→BODY': 16 });
+  });
+
+  it('freeform spacingScale excludes placeholder elements', () => {
+    // TITLE placeholder + two freeform shapes with an 8pt gap between them
+    // freeform 1 bottom = 36+20 = 56; freeform 2 y = 64 → gap = 8pt
+    const slides = [{
+      pageElements: [makePH('TITLE', 0, 20), makeEl(36, 20), makeEl(64, 20)],
+    }];
+    const layout = extractLayout({}, slides);
+    expect(layout.spacingScale).toEqual([8]);
+    expect(layout.placeholderSpacing).toEqual({});
+  });
+
+  it('uses modal gap when the same placeholder pair appears on multiple slides', () => {
+    // Both slides: TITLE→BODY gap = 16pt
+    const slide = { pageElements: [makePH('TITLE', 0, 20), makePH('BODY', 36, 20)] };
+    const layout = extractLayout({}, [slide, slide]);
+    expect(layout.placeholderSpacing).toEqual({ 'TITLE→BODY': 16 });
   });
 });
 import { presentationGetDesignSystemTool } from '../../../src/tools/presentation/design-system.js';
