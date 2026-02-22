@@ -84,3 +84,60 @@ export function extractTypography(layouts: any[], masters: any[]): TypographyMap
 
   return result;
 }
+
+// ─── Lists ────────────────────────────────────────────────────────────────────
+
+const BULLET_GLYPH_TYPES = new Set(['DISC', 'CIRCLE', 'SQUARE', 'ARROW', 'DIAMOND']);
+const NUMBERED_GLYPH_TYPES = new Set(['DECIMAL', 'ZERO_DECIMAL', 'UPPER_ALPHA', 'ALPHA', 'UPPER_ROMAN', 'ROMAN']);
+
+interface ListLevel {
+  level: number;
+  glyphType: string;
+  glyphFormat?: string;
+  indentPt: number;
+}
+
+interface ListStyle {
+  glyphType: string;
+  indentPt: number;
+  levels: ListLevel[];
+}
+
+interface ListsMap {
+  bullet?: ListStyle;
+  numbered?: ListStyle;
+}
+
+export function extractLists(slides: any[], masters: any[], layouts: any[]): ListsMap {
+  const result: ListsMap = {};
+
+  function processPageLists(listsMap: Record<string, any>) {
+    for (const listDef of Object.values(listsMap)) {
+      const nestingLevel: Record<string, any> = listDef.listProperties?.nestingLevel ?? {};
+      const levels: ListLevel[] = Object.entries(nestingLevel)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([lvl, style]: [string, any]) => ({
+          level: Number(lvl),
+          glyphType: style.bulletStyle?.glyphType ?? 'UNKNOWN',
+          glyphFormat: style.bulletStyle?.glyphFormat ?? undefined,
+          indentPt: style.bulletStyle?.indentStart?.magnitude ?? 0,
+        }));
+
+      if (levels.length === 0) continue;
+      const topGlyph = levels[0].glyphType;
+
+      if (BULLET_GLYPH_TYPES.has(topGlyph) && !result.bullet) {
+        result.bullet = { glyphType: topGlyph, indentPt: levels[0].indentPt, levels };
+      } else if (NUMBERED_GLYPH_TYPES.has(topGlyph) && !result.numbered) {
+        result.numbered = { glyphType: topGlyph, indentPt: levels[0].indentPt, levels };
+      }
+    }
+  }
+
+  for (const page of [...slides, ...masters, ...layouts]) {
+    if (page.lists) processPageLists(page.lists);
+    if (result.bullet && result.numbered) break;
+  }
+
+  return result;
+}

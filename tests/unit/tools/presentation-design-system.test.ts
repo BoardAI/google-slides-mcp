@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { rgbToHex, modalValue } from '../../../src/tools/presentation/design-system.js';
 import { extractTypography } from '../../../src/tools/presentation/design-system.js';
+import { extractLists } from '../../../src/tools/presentation/design-system.js';
 
 describe('rgbToHex', () => {
   it('converts float RGB to uppercase hex', () => {
@@ -67,5 +68,46 @@ describe('extractTypography', () => {
     const result = extractTypography([], masters);
     expect(result.body?.fontFamily).toBe('Arial');
     expect(result.body?.fontSizePt).toBe(18);
+  });
+});
+
+describe('extractLists', () => {
+  it('extracts bullet list from slides', () => {
+    const slides = [{
+      lists: {
+        'list-abc': {
+          listProperties: {
+            nestingLevel: {
+              '0': { bulletStyle: { glyphType: 'DISC', indentStart: { magnitude: 36, unit: 'PT' }, indentFirstLine: { magnitude: -18, unit: 'PT' } } },
+              '1': { bulletStyle: { glyphType: 'CIRCLE', indentStart: { magnitude: 72, unit: 'PT' }, indentFirstLine: { magnitude: -18, unit: 'PT' } } },
+            },
+          },
+        },
+      },
+    }];
+    const result = extractLists(slides, [], []);
+    expect(result.bullet?.glyphType).toBe('DISC');
+    expect(result.bullet?.levels).toHaveLength(2);
+    expect(result.bullet?.levels[0].indentPt).toBe(36);
+  });
+
+  it('extracts numbered list', () => {
+    const slides = [{
+      lists: {
+        'list-num': {
+          listProperties: {
+            nestingLevel: {
+              '0': { bulletStyle: { glyphType: 'DECIMAL', indentStart: { magnitude: 36, unit: 'PT' } } },
+            },
+          },
+        },
+      },
+    }];
+    const result = extractLists(slides, [], []);
+    expect(result.numbered?.glyphType).toBe('DECIMAL');
+  });
+
+  it('returns empty object when no lists', () => {
+    expect(extractLists([], [], [])).toEqual({});
   });
 });
