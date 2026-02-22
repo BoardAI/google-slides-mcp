@@ -267,6 +267,7 @@ describe('presentationGetDesignSystemTool', () => {
 
   it('returns structured design system data with all required keys', async () => {
     const result = await presentationGetDesignSystemTool(mockClient, { presentationId: 'pres-123' });
+    expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toHaveProperty('slideSize');
       expect(result.data).toHaveProperty('typography');

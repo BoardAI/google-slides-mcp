@@ -93,8 +93,8 @@ export async function elementFindTool(
       if (type != null && elementType(el) !== type) continue;
       if (shapeType != null && el.shape?.shapeType !== shapeType) continue;
       if (textQuery != null && !elementText(el).toLowerCase().includes(textQuery)) continue;
-      if (placeholderType != null && el.placeholder?.type !== placeholderType) continue;
-      const ph = el.placeholder;
+      if (placeholderType != null && el.shape?.placeholder?.type !== placeholderType) continue;
+      const ph = el.shape?.placeholder;
       const placeholderInfo = ph?.type
         ? { type: ph.type as string, ...(ph.index != null ? { index: ph.index as number } : {}) }
         : undefined;
