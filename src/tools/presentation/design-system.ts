@@ -69,6 +69,7 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
       const placeholderType: string | undefined = el.shape?.placeholder?.type;
       const fillRgb = el.shape.shapeProperties?.shapeBackgroundFill?.solidFill?.color?.rgbColor;
       const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : undefined;
+      const seenInElement = new Set<string>();
 
       for (const te of el.shape.text?.textElements ?? []) {
         const run = te.textRun;
@@ -88,6 +89,9 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
           : fillColor === AMBER_FILL ? 'freeform:amber' : 'freeform';
 
         const fingerprint = `${sizePt}|${fontFamily}|${bold}|${color ?? ''}`;
+        if (seenInElement.has(fingerprint)) continue;
+        seenInElement.add(fingerprint);
+
         const existing = groups.get(fingerprint);
         if (existing) {
           existing.occurrences++;

@@ -1,8 +1,16 @@
-import { describe, it, expect } from '@jest/globals';
-import { rgbToHex, modalValue } from '../../../src/tools/presentation/design-system.js';
-import { extractLists } from '../../../src/tools/presentation/design-system.js';
-import { extractShapeStyles } from '../../../src/tools/presentation/design-system.js';
-import { extractTableStyles } from '../../../src/tools/presentation/design-system.js';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import {
+  rgbToHex,
+  modalValue,
+  extractLists,
+  extractShapeStyles,
+  extractTableStyles,
+  extractTypeScale,
+  extractColors,
+  extractLayout,
+  presentationGetDesignSystemTool,
+} from '../../../src/tools/presentation/design-system.js';
+import { SlidesClient } from '../../../src/google/client.js';
 
 describe('rgbToHex', () => {
   it('converts float RGB to uppercase hex', () => {
@@ -24,8 +32,6 @@ describe('modalValue', () => {
     expect(modalValue([])).toBeNull();
   });
 });
-
-import { extractTypeScale } from '../../../src/tools/presentation/design-system.js';
 
 describe('extractTypeScale', () => {
   const P = 12700; // EMU per point
@@ -106,12 +112,22 @@ describe('extractTypeScale', () => {
   });
 
   it('labels the most frequent freeform style as body', () => {
-    const body = makeTextEl(18, 'Figtree', false, null);
-    const caption = makeTextEl(12, 'Figtree', false, null);
-    // body: 4 occurrences, caption: 2
+    // 4 distinct body elements total (2 per slide × 2 slides), 2 caption elements
     const slides = [
-      { pageElements: [body, body, caption] },
-      { pageElements: [body, body, caption] },
+      {
+        pageElements: [
+          makeTextEl(18, 'Figtree', false, null),
+          makeTextEl(18, 'Figtree', false, null),
+          makeTextEl(12, 'Figtree', false, null),
+        ],
+      },
+      {
+        pageElements: [
+          makeTextEl(18, 'Figtree', false, null),
+          makeTextEl(18, 'Figtree', false, null),
+          makeTextEl(12, 'Figtree', false, null),
+        ],
+      },
     ];
     const result = extractTypeScale(slides);
     expect(result.find(e => e.sizePt === 18)?.context).toBe('body');
@@ -235,7 +251,6 @@ describe('extractTableStyles', () => {
     expect(result.defaultColumnWidthPt).toBe(120);
   });
 });
-import { extractColors, extractLayout } from '../../../src/tools/presentation/design-system.js';
 
 describe('extractColors', () => {
   it('collects and deduplicates fill, text, background, and border colors', () => {
@@ -360,9 +375,6 @@ describe('extractLayout', () => {
     expect(layout.placeholderSpacing).toEqual({ 'TITLE→BODY': 16 });
   });
 });
-import { presentationGetDesignSystemTool } from '../../../src/tools/presentation/design-system.js';
-import { SlidesClient } from '../../../src/google/client.js';
-import { jest, beforeEach } from '@jest/globals';
 
 describe('presentationGetDesignSystemTool', () => {
   let mockClient: jest.Mocked<SlidesClient>;
