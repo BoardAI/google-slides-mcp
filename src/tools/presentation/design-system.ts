@@ -43,16 +43,19 @@ function inferTypeContext(
   roles: string[],
   occurrences: number,
   maxFreeformOccurrences: number,
+  yPt: number,
+  slideHeightPt: number,
 ): string {
   if (roles.includes('placeholder:TITLE') || roles.includes('placeholder:CENTERED_TITLE')) return 'slide title';
   if (roles.includes('placeholder:SUBTITLE')) return 'subtitle';
+  if (yPt >= 0 && slideHeightPt > 0 && yPt < slideHeightPt * 0.25) return 'heading';
   if (roles.includes('placeholder:BODY')) return 'body text';
   if (roles.some(r => r === 'freeform:amber')) return 'callout label';
   if (occurrences === maxFreeformOccurrences && maxFreeformOccurrences > 0) return 'body';
   return 'supporting text';
 }
 
-export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
+export function extractTypeScale(slides: any[], slideHeightPt = 0): TypeScaleEntry[] {
   const groups = new Map<string, {
     sizePt: number;
     fontFamily: string;
@@ -60,6 +63,7 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
     color?: string;
     occurrences: number;
     roles: Set<string>;
+    minYPt: number;
   }>();
 
   for (const slide of slides) {
@@ -69,6 +73,7 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
       const placeholderType: string | undefined = el.shape?.placeholder?.type;
       const fillRgb = el.shape.shapeProperties?.shapeBackgroundFill?.solidFill?.color?.rgbColor;
       const fillColor = fillRgb ? rgbToHex(fillRgb.red, fillRgb.green, fillRgb.blue) : undefined;
+      const elYPt = el.transform?.translateY != null ? emuToPoints(el.transform.translateY) : -1;
       const seenInElement = new Set<string>();
 
       for (const te of el.shape.text?.textElements ?? []) {
@@ -96,8 +101,9 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
         if (existing) {
           existing.occurrences++;
           existing.roles.add(role);
+          if (elYPt >= 0) existing.minYPt = Math.min(existing.minYPt, elYPt);
         } else {
-          groups.set(fingerprint, { sizePt, fontFamily, bold, color, occurrences: 1, roles: new Set([role]) });
+          groups.set(fingerprint, { sizePt, fontFamily, bold, color, occurrences: 1, roles: new Set([role]), minYPt: elYPt >= 0 ? elYPt : Infinity });
         }
       }
     }
@@ -120,7 +126,7 @@ export function extractTypeScale(slides: any[]): TypeScaleEntry[] {
       color: e.color,
       occurrences: e.occurrences,
       roles: [...e.roles],
-      context: inferTypeContext([...e.roles], e.occurrences, maxFreeformOccurrences),
+      context: inferTypeContext([...e.roles], e.occurrences, maxFreeformOccurrences, isFinite(e.minYPt) ? e.minYPt : -1, slideHeightPt),
     }))
     .sort((a, b) => b.sizePt - a.sizePt);
 }
@@ -226,9 +232,20 @@ export interface AnnotatedShapeStyle {
   shadowBlurPt?: number;
   shadowColor?: string;
   verticalAlignment?: string;
+  cornerRadiusPt?: number;
   count: number;
   inferredRole: string;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  'card': 'content card',
+  'callout': 'highlighted callout',
+  'ghost': 'outline / ghost box',
+  'slate-ghost': 'subtle outline',
+  'dark-panel': 'dark panel',
+  'subtle-card': 'subtle card',
+  'shape': 'generic shape',
+};
 
 export function extractAnnotatedShapeStyles(slides: any[]): Record<string, AnnotatedShapeStyle> {
   const groups = new Map<string, { style: Omit<AnnotatedShapeStyle, 'count' | 'inferredRole'>; count: number }>();
@@ -259,7 +276,14 @@ export function extractAnnotatedShapeStyles(slides: any[]): Record<string, Annot
         ? emuToPoints(shadow.blurRadius.magnitude) : undefined;
       const verticalAlignment: string | undefined = sp.contentAlignment ?? undefined;
 
-      const style = { fillColor, borderColor, borderWidthPt, dashStyle, shapeType, shadowColor, shadowBlurPt, verticalAlignment };
+      const rawRadius = sp.roundedRectangleRadius?.magnitude ?? sp.cornerRadius?.magnitude ?? null;
+      const cornerRadiusPt: number | undefined =
+        rawRadius != null && rawRadius !== 0 ? emuToPoints(rawRadius) : undefined;
+
+      const style: Omit<AnnotatedShapeStyle, 'count' | 'inferredRole'> = {
+        fillColor, borderColor, borderWidthPt, dashStyle, shapeType, shadowColor, shadowBlurPt, verticalAlignment,
+        ...(cornerRadiusPt !== undefined ? { cornerRadiusPt } : {}),
+      };
       const fingerprint = JSON.stringify(style);
 
       const existing = groups.get(fingerprint);
@@ -274,7 +298,7 @@ export function extractAnnotatedShapeStyles(slides: any[]): Record<string, Annot
     let key = role;
     let suffix = 2;
     while (key in result) key = `${role}-${suffix++}`;
-    result[key] = { ...style, count, inferredRole: role };
+    result[key] = { ...style, count, inferredRole: ROLE_LABELS[role] ?? role };
   }
   return result;
 }
@@ -394,55 +418,89 @@ export interface ColumnGrid {
   gutterPt: number | null;
 }
 
-export function extractColumnGrid(slides: any[], _widthPt: number): ColumnGrid {
-  const ROUND_TO = 4;     // pt — absorb sub-pixel jitter
-  const MERGE_WITHIN = 8; // pt — merge nearby X values into one column
-  const MIN_FREQ = 2;     // minimum appearances to count as a column
-
-  // Map from bucket key → { rawXs, widths }
+function buildCandidatesForElements(
+  pageElements: any[],
+  ROUND_TO: number,
+  MERGE_WITHIN: number,
+  MIN_FREQ: number,
+): Array<{ xPt: number; rawXs: number[]; widths: number[] }> {
   const xBuckets = new Map<number, { rawXs: number[]; widths: number[] }>();
 
-  for (const slide of slides) {
-    for (const el of slide.pageElements ?? []) {
-      if (!el.transform?.translateX) continue;
-      const rawX = emuToPoints(el.transform.translateX);
-      const bucketKey = Math.round(rawX / ROUND_TO) * ROUND_TO;
-      const wPt = emuToPoints(el.size?.width?.magnitude ?? 0);
-      if (bucketKey <= 0 || wPt <= 0) continue;
-      const bucket = xBuckets.get(bucketKey) ?? { rawXs: [], widths: [] };
-      bucket.rawXs.push(rawX);
-      bucket.widths.push(wPt);
-      xBuckets.set(bucketKey, bucket);
-    }
+  for (const el of pageElements) {
+    if (!el.transform?.translateX) continue;
+    const rawX = emuToPoints(el.transform.translateX);
+    const bucketKey = Math.round(rawX / ROUND_TO) * ROUND_TO;
+    const wPt = emuToPoints(el.size?.width?.magnitude ?? 0);
+    if (bucketKey <= 0 || wPt <= 0) continue;
+    const bucket = xBuckets.get(bucketKey) ?? { rawXs: [], widths: [] };
+    bucket.rawXs.push(rawX);
+    bucket.widths.push(wPt);
+    xBuckets.set(bucketKey, bucket);
   }
 
-  const candidates = [...xBuckets.entries()]
+  return [...xBuckets.entries()]
     .filter(([, { widths }]) => widths.length >= MIN_FREQ)
     .sort(([a], [b]) => a - b)
     .map(([, { rawXs, widths }]) => ({
       xPt: Math.round(rawXs.reduce((a, b) => a + b, 0) / rawXs.length),
+      rawXs,
       widths,
     }));
+}
 
-  if (candidates.length === 0) return { columnCount: 1, columns: [], gutterPt: null };
+function mergeCandidates(
+  candidates: Array<{ xPt: number; rawXs: number[]; widths: number[] }>,
+  MERGE_WITHIN: number,
+): ColumnEntry[] {
+  if (candidates.length === 0) return [];
 
-  // Merge X values within MERGE_WITHIN pt
-  const merged: Array<{ xPt: number; widths: number[] }> = [];
-  for (const { xPt: x, widths } of candidates) {
+  // Merge X values within MERGE_WITHIN pt using weighted mean for xPt
+  const merged: Array<{ rawXs: number[]; widths: number[] }> = [];
+  for (const { xPt: x, rawXs, widths } of candidates) {
     const last = merged[merged.length - 1];
-    if (last && x - last.xPt <= MERGE_WITHIN) {
+    const lastXPt = last
+      ? Math.round(last.rawXs.reduce((a, b) => a + b, 0) / last.rawXs.length)
+      : null;
+    if (last && lastXPt !== null && x - lastXPt <= MERGE_WITHIN) {
+      last.rawXs.push(...rawXs);
       last.widths.push(...widths);
     } else {
-      merged.push({ xPt: x, widths });
+      merged.push({ rawXs: [...rawXs], widths: [...widths] });
     }
   }
 
-  if (merged.length <= 1) return { columnCount: 1, columns: [], gutterPt: null };
-
-  const columns: ColumnEntry[] = merged.map(({ xPt, widths }) => ({
-    xPt,
+  return merged.map(({ rawXs, widths }) => ({
+    xPt: Math.round(rawXs.reduce((a, b) => a + b, 0) / rawXs.length),
     widthPt: modalValue(widths) ?? widths[0],
   }));
+}
+
+export function extractColumnGrid(slides: any[], _widthPt: number): ColumnGrid {
+  const ROUND_TO = 4;     // pt — absorb sub-pixel jitter
+  const MERGE_WITHIN = 8; // pt — merge nearby X values into one column
+  const MIN_FREQ = 2;     // minimum appearances to count as a column across all slides
+
+  // Per-slide: use MIN_FREQ=1 since each X position appears once per slide
+  // but we still need a slide to have ≥2 distinct X positions to be multi-column
+  const perSlideGrids = slides.map(slide => {
+    const candidates = buildCandidatesForElements(slide.pageElements ?? [], ROUND_TO, MERGE_WITHIN, 1);
+    const columns = mergeCandidates(candidates, MERGE_WITHIN);
+    return { columnCount: columns.length <= 1 ? 1 : columns.length, columns };
+  });
+
+  const perSlideColumnCounts = perSlideGrids.map(g => g.columnCount);
+  const modalColumnCount = modalValue(perSlideColumnCounts) ?? 1;
+
+  if (modalColumnCount <= 1) return { columnCount: 1, columns: [], gutterPt: null };
+
+  // Collect columns from slides matching the modal column count,
+  // then re-pool those elements to get stable X positions (meeting MIN_FREQ=2 across matching slides)
+  const matchingSlides = slides.filter((_, i) => perSlideGrids[i].columnCount === modalColumnCount);
+  const pooledElements = matchingSlides.flatMap(s => s.pageElements ?? []);
+  const pooledCandidates = buildCandidatesForElements(pooledElements, ROUND_TO, MERGE_WITHIN, MIN_FREQ);
+  const columns = mergeCandidates(pooledCandidates, MERGE_WITHIN);
+
+  if (columns.length <= 1) return { columnCount: 1, columns: [], gutterPt: null };
 
   const gutters: number[] = [];
   for (let i = 1; i < columns.length; i++) {
@@ -572,12 +630,12 @@ export async function presentationGetDesignSystemTool(
     const layouts: any[] = (presentation as any).layouts ?? [];
     const slides: any[] = presentation.slides ?? [];
 
-    const typeScale = extractTypeScale(slides);
+    const layout = extractLayout((presentation as any).pageSize, slides);
+    const typeScale = extractTypeScale(slides, layout.heightPt);
     const lists = extractLists(slides, masters, layouts);
     const shapeStyles = extractAnnotatedShapeStyles(slides);
     const tableStyles = extractTableStyles(slides);
     const colors = extractColors(slides);
-    const layout = extractLayout((presentation as any).pageSize, slides);
     const grid = extractColumnGrid(slides, layout.widthPt);
 
     const designSystem = {

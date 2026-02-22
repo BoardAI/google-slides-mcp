@@ -136,6 +136,61 @@ describe('extractTypeScale', () => {
   });
 });
 
+describe('extractTypeScale heading context', () => {
+  const P = 12700; // EMU per point
+
+  const makeTextElWithY = (
+    sizePt: number,
+    fontFamily: string,
+    bold: boolean,
+    yPt: number,
+  ) => ({
+    transform: { translateX: P, translateY: yPt * P },
+    size: { width: { magnitude: 100 * P }, height: { magnitude: 20 * P } },
+    shape: {
+      shapeProperties: {},
+      text: {
+        textElements: [{
+          textRun: {
+            content: 'Sample text',
+            style: {
+              fontSize: { magnitude: sizePt },
+              fontFamily,
+              bold,
+            },
+          },
+        }],
+      },
+    },
+  });
+
+  it('infers heading context for freeform element with Y < 25% of slide height', () => {
+    // slideHeightPt = 400, element at y=50pt (12.5% < 25%) → heading
+    const el = makeTextElWithY(24, 'Figtree', true, 50);
+    const slides = [{ pageElements: [el] }, { pageElements: [el] }];
+    const result = extractTypeScale(slides, 400);
+    expect(result).toHaveLength(1);
+    expect(result[0].context).toBe('heading');
+  });
+
+  it('does not infer heading context when Y >= 25% of slide height', () => {
+    // slideHeightPt = 400, element at y=150pt (37.5% > 25%) → not heading
+    const el = makeTextElWithY(24, 'Figtree', true, 150);
+    const slides = [{ pageElements: [el] }, { pageElements: [el] }];
+    const result = extractTypeScale(slides, 400);
+    expect(result).toHaveLength(1);
+    expect(result[0].context).not.toBe('heading');
+  });
+
+  it('does not infer heading context when slideHeightPt is 0 (disabled)', () => {
+    const el = makeTextElWithY(24, 'Figtree', true, 50);
+    const slides = [{ pageElements: [el] }, { pageElements: [el] }];
+    const result = extractTypeScale(slides, 0);
+    expect(result).toHaveLength(1);
+    expect(result[0].context).not.toBe('heading');
+  });
+});
+
 describe('extractColumnGrid', () => {
   const P = 12700;
   const makeEl = (xPt: number, wPt: number) => ({
@@ -173,6 +228,46 @@ describe('extractColumnGrid', () => {
     expect(result.columnCount).toBe(2);
     expect(result.gutterPt).toBe(28);
   });
+
+  it('uses modal column count across mixed-layout slides', () => {
+    // slide1: 3-column layout; slide2 & slide3: 2-column layout → modal is 2
+    const slide3col = {
+      pageElements: [makeEl(17, 210), makeEl(255, 210), makeEl(493, 210)],
+    };
+    const slide2col = {
+      pageElements: [makeEl(17, 350), makeEl(390, 350)],
+    };
+    const result = extractColumnGrid([slide3col, slide2col, slide2col], 720);
+    expect(result.columnCount).toBe(2);
+  });
+
+  it('uses weighted mean xPt when merging nearby X values', () => {
+    // Two X positions: 17pt (2 elements) and 21pt (2 elements) — within 8pt → merge
+    // weighted mean = (17*2 + 21*2) / 4 = 76/4 = 19
+    const slide = {
+      pageElements: [makeEl(17, 210), makeEl(17, 210), makeEl(21, 210), makeEl(21, 210)],
+    };
+    // Pass two identical slides so each X bucket gets freq 4 (>= MIN_FREQ of 2)
+    const result = extractColumnGrid([slide], 720);
+    expect(result.columnCount).toBe(1);
+    // When merged, the single column should have xPt close to weighted mean
+    // (We just verify it merges to 1 column here; the weighted mean is verified below)
+  });
+
+  it('computes weighted mean xPt for merged columns and verifies weighted mean', () => {
+    // slideA has elements at x=16 and x=200; slideB has elements at x=20 and x=200
+    // Both slides have 2 columns. Modal column count = 2.
+    // When pooled from matching slides: x=16 (freq=2) and x=20 (freq=2) and x=200 (freq=4).
+    // x=16 and x=20 are within 8pt → they merge into one column with weighted mean xPt = (16+16+20+20)/4 = 18
+    // So final result: 2 columns (merged ~18 and 200), not 3.
+    const slideA = { pageElements: [makeEl(16, 210), makeEl(200, 210)] };
+    const slideB = { pageElements: [makeEl(20, 210), makeEl(200, 210)] };
+    const result2 = extractColumnGrid([slideA, slideA, slideB, slideB], 720);
+    // 16 and 20 merge → 2 columns total
+    expect(result2.columnCount).toBe(2);
+    // The first column's xPt should be the weighted mean of 16,16,20,20 = 18
+    expect(result2.columns[0].xPt).toBe(18);
+  });
 });
 
 describe('extractAnnotatedShapeStyles', () => {
@@ -204,7 +299,7 @@ describe('extractAnnotatedShapeStyles', () => {
     const slides = [{ pageElements: makeShape('#F5B73B', '#EEFF41', 3) }];
     const result = extractAnnotatedShapeStyles(slides);
     expect(result['callout']).toBeDefined();
-    expect(result['callout'].inferredRole).toBe('callout');
+    expect(result['callout'].inferredRole).toBe('highlighted callout');
     expect(result['callout'].count).toBe(3);
   });
 
@@ -212,7 +307,7 @@ describe('extractAnnotatedShapeStyles', () => {
     const slides = [{ pageElements: makeShape(null, '#000000', 2) }];
     const result = extractAnnotatedShapeStyles(slides);
     expect(result['ghost']).toBeDefined();
-    expect(result['ghost'].inferredRole).toBe('ghost');
+    expect(result['ghost'].inferredRole).toBe('outline / ghost box');
   });
 
   it('assigns role "slate-ghost" to no-fill + slate (#8598A7) border shapes', () => {
@@ -225,7 +320,7 @@ describe('extractAnnotatedShapeStyles', () => {
     const slides = [{ pageElements: makeShape('#FFFFFF', '#000000', 5) }];
     const result = extractAnnotatedShapeStyles(slides);
     expect(result['card']).toBeDefined();
-    expect(result['card'].inferredRole).toBe('card');
+    expect(result['card'].inferredRole).toBe('content card');
   });
 
   it('appends -2 suffix when two fingerprints map to the same role', () => {
@@ -254,8 +349,38 @@ describe('extractAnnotatedShapeStyles', () => {
     const slides = [{ pageElements: makeShape('#FFFFFF', '#00FF00', 2) }];
     const result = extractAnnotatedShapeStyles(slides);
     expect(result['subtle-card']).toBeDefined();
-    expect(result['subtle-card'].inferredRole).toBe('subtle-card');
+    expect(result['subtle-card'].inferredRole).toBe('subtle card');
     expect(result['card']).toBeUndefined();
+  });
+
+  it('includes cornerRadiusPt in output when roundedRectangleRadius is non-zero', () => {
+    // roundedRectangleRadius in EMU (e.g. 914400 EMU = 72pt)
+    const EMU_PER_PT = 12700;
+    const radiusEmu = 72 * EMU_PER_PT; // 72pt radius
+    const shapeWithRadius = [{
+      shape: {
+        shapeProperties: {
+          shapeBackgroundFill: { solidFill: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } } },
+          outline: {
+            outlineFill: { solidFill: { color: { rgbColor: { red: 0, green: 0, blue: 0 } } } },
+            weight: { magnitude: 12700 },
+            dashStyle: 'SOLID',
+          },
+          roundedRectangleRadius: { magnitude: radiusEmu },
+        },
+      },
+    }];
+    const slides = [{ pageElements: [...shapeWithRadius, ...shapeWithRadius] }];
+    const result = extractAnnotatedShapeStyles(slides);
+    const keys = Object.keys(result);
+    expect(keys).toHaveLength(1);
+    expect(result[keys[0]].cornerRadiusPt).toBe(72);
+  });
+
+  it('omits cornerRadiusPt when roundedRectangleRadius is zero or absent', () => {
+    const slides = [{ pageElements: makeShape('#FFFFFF', '#000000', 2) }];
+    const result = extractAnnotatedShapeStyles(slides);
+    expect(result['card'].cornerRadiusPt).toBeUndefined();
   });
 });
 
