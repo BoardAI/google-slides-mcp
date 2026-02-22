@@ -18,6 +18,7 @@ export interface ElementFindParams {
   type?: ElementType;
   shapeType?: string;
   text?: string;
+  placeholderType?: string;  // 'TITLE' | 'BODY' | 'CENTERED_TITLE' | 'SUBTITLE' | etc.
 }
 
 function elementType(el: any): ElementType | null {
@@ -42,7 +43,7 @@ export async function elementFindTool(
   client: SlidesClient,
   params: ElementFindParams
 ): Promise<ToolResponse> {
-  const { presentationId, type, shapeType, text } = params;
+  const { presentationId, type, shapeType, text, placeholderType } = params;
 
   if (params.slideIndex != null && params.slideIndex < 0) {
     return createErrorResponse('validation', `slideIndex must be >= 0, got ${params.slideIndex}`);
@@ -84,22 +85,29 @@ export async function elementFindTool(
   // Collect and filter elements
   const textQuery = text != null ? text.toLowerCase() : null;
 
-  const matches: Array<{ slideId: string; slideIndex: number; element: any }> = [];
+  type Match = { slideId: string; slideIndex: number; element: any; placeholderInfo?: { type: string; index?: number } };
+  const matches: Array<Match> = [];
 
   for (const { slide, slideIndex } of slidesToSearch) {
     for (const el of slide.pageElements ?? []) {
       if (type != null && elementType(el) !== type) continue;
       if (shapeType != null && el.shape?.shapeType !== shapeType) continue;
       if (textQuery != null && !elementText(el).toLowerCase().includes(textQuery)) continue;
-      matches.push({ slideId: slide.objectId, slideIndex, element: el });
+      if (placeholderType != null && el.placeholder?.type !== placeholderType) continue;
+      const ph = el.placeholder;
+      const placeholderInfo = ph?.type
+        ? { type: ph.type as string, ...(ph.index != null ? { index: ph.index as number } : {}) }
+        : undefined;
+      matches.push({ slideId: slide.objectId, slideIndex, element: el, placeholderInfo });
     }
   }
 
   const matchCount = matches.length;
   const filterDesc: string[] = [];
-  if (type)      filterDesc.push(`type=${type}`);
-  if (shapeType) filterDesc.push(`shapeType=${shapeType}`);
-  if (text)      filterDesc.push(`text="${text}"`);
+  if (type)            filterDesc.push(`type=${type}`);
+  if (shapeType)       filterDesc.push(`shapeType=${shapeType}`);
+  if (text)            filterDesc.push(`text="${text}"`);
+  if (placeholderType) filterDesc.push(`placeholderType=${placeholderType}`);
   if (params.slideId)    filterDesc.push(`slide=${params.slideId}`);
   if (params.slideIndex != null) filterDesc.push(`slideIndex=${params.slideIndex}`);
 
@@ -109,12 +117,24 @@ export async function elementFindTool(
   if (matchCount === 0) {
     message = `No elements found${filterSuffix}`;
   } else {
-    const lines = matches.map(({ slideId, slideIndex, element }, i) => {
+    const lines = matches.map(({ slideId, slideIndex, element, placeholderInfo }, i) => {
       const summary = formatElementSummary(element, i + 1);
-      return `[Slide ${slideIndex + 1}: ${slideId}]\n${summary}`;
+      const phSuffix = placeholderInfo
+        ? ` [placeholder: ${placeholderInfo.type}${placeholderInfo.index != null ? ` #${placeholderInfo.index}` : ''}]`
+        : '';
+      return `[Slide ${slideIndex + 1}: ${slideId}${phSuffix}]\n${summary}`;
     });
     message = `Found ${matchCount} element${matchCount !== 1 ? 's' : ''}${filterSuffix}\n\n${lines.join('\n\n')}`;
   }
 
-  return createSuccessResponse(formatResponse('simple', message), { matchCount, matches });
+  const structuredMatches = matches.map(({ slideId, slideIndex, element, placeholderInfo }) => ({
+    slideId,
+    slideIndex,
+    elementId: element.objectId,
+    elementType: elementType(element),
+    element,
+    ...(placeholderInfo ? { placeholder: placeholderInfo } : {}),
+  }));
+
+  return createSuccessResponse(formatResponse('simple', message), { matchCount, matches: structuredMatches });
 }

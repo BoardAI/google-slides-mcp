@@ -6,7 +6,8 @@ import {
   createErrorResponse,
   formatResponse,
 } from '../../utils/response.js';
-import { HEX_COLOR_RE, parseHexColor } from '../shared/format.js';
+import { parseHexColor, buildTextRange } from '../shared/format.js';
+import { validateHexColor, validateAlignment, validatePositiveNumber, Alignment } from '../../utils/validators.js';
 
 // ─── tableSetCellTool ────────────────────────────────────────────────────────
 
@@ -26,28 +27,30 @@ export async function tableSetCellTool(
 
   const cellLocation = { rowIndex: row, columnIndex: column };
 
-  const requests: any[] = [
-    {
-      deleteText: {
-        objectId: tableId,
-        cellLocation,
-        textRange: { type: 'ALL' },
-      },
-    },
-  ];
-
-  if (text !== '') {
-    requests.push({
-      insertText: {
-        objectId: tableId,
-        cellLocation,
-        text,
-        insertionIndex: 0,
-      },
-    });
-  }
-
   try {
+    // Always include deleteText to clear existing content. The Google Slides
+    // API handles this gracefully even for empty cells.
+    const requests: any[] = [
+      {
+        deleteText: {
+          objectId: tableId,
+          cellLocation,
+          textRange: { type: 'ALL' },
+        },
+      },
+    ];
+
+    if (text !== '') {
+      requests.push({
+        insertText: {
+          objectId: tableId,
+          cellLocation,
+          text,
+          insertionIndex: 0,
+        },
+      });
+    }
+
     await client.batchUpdate(presentationId, requests);
     return createSuccessResponse(
       formatResponse('simple', `Set cell [${row},${column}] in table ${tableId}`),
@@ -62,9 +65,6 @@ export async function tableSetCellTool(
 }
 
 // ─── tableFormatCellTextTool ─────────────────────────────────────────────────
-
-const VALID_ALIGNMENTS = ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'] as const;
-type Alignment = typeof VALID_ALIGNMENTS[number];
 
 export interface TableFormatCellTextParams {
   presentationId: string;
@@ -82,12 +82,6 @@ export interface TableFormatCellTextParams {
   foregroundColor?: string;
   backgroundColor?: string;
   alignment?: Alignment;
-}
-
-function buildTextRange(startIndex?: number, endIndex?: number): object {
-  if (startIndex == null && endIndex == null) return { type: 'ALL' };
-  if (startIndex != null && endIndex == null) return { type: 'FROM_START_INDEX', startIndex };
-  return { type: 'FIXED_RANGE', startIndex, endIndex };
 }
 
 export async function tableFormatCellTextTool(
@@ -111,27 +105,14 @@ export async function tableFormatCellTextTool(
     return createErrorResponse('validation', 'At least one formatting property must be provided');
   }
 
-  if (foregroundColor != null && !HEX_COLOR_RE.test(foregroundColor)) {
-    return createErrorResponse(
-      'validation',
-      `Invalid foreground color: ${foregroundColor}. Use hex format, e.g. "#FF0000"`
-    );
-  }
-  if (backgroundColor != null && !HEX_COLOR_RE.test(backgroundColor)) {
-    return createErrorResponse(
-      'validation',
-      `Invalid background color: ${backgroundColor}. Use hex format, e.g. "#FFFFFF"`
-    );
-  }
-  if (alignment != null && !(VALID_ALIGNMENTS as readonly string[]).includes(alignment)) {
-    return createErrorResponse(
-      'validation',
-      `Invalid alignment: ${alignment}. Must be one of: ${VALID_ALIGNMENTS.join(', ')}`
-    );
-  }
-  if (fontSize != null && fontSize <= 0) {
-    return createErrorResponse('validation', `Invalid fontSize: ${fontSize}. Must be greater than 0`);
-  }
+  const errFg = validateHexColor(foregroundColor, 'foregroundColor');
+  if (errFg) return createErrorResponse('validation', errFg);
+  const errBg = validateHexColor(backgroundColor, 'backgroundColor');
+  if (errBg) return createErrorResponse('validation', errBg);
+  const errAlign = validateAlignment(alignment);
+  if (errAlign) return createErrorResponse('validation', errAlign);
+  const errSize = validatePositiveNumber(fontSize, 'fontSize');
+  if (errSize) return createErrorResponse('validation', errSize);
 
   try {
     const textRange = buildTextRange(startIndex, endIndex);
@@ -231,12 +212,8 @@ export async function tableStyleCellTool(
     );
   }
 
-  if (backgroundColor != null && !HEX_COLOR_RE.test(backgroundColor)) {
-    return createErrorResponse(
-      'validation',
-      `Invalid backgroundColor: ${backgroundColor}. Use hex format, e.g. "#FF0000"`
-    );
-  }
+  const errBg2 = validateHexColor(backgroundColor, 'backgroundColor');
+  if (errBg2) return createErrorResponse('validation', errBg2);
 
   try {
     const tableCellProperties: Record<string, any> = {};

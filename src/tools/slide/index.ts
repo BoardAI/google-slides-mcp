@@ -6,33 +6,58 @@ import {
   createErrorResponse,
   formatResponse,
 } from '../../utils/response.js';
+import { parseHexColor, genId } from '../shared/format.js';
+import { validateHexColor } from '../../utils/validators.js';
 
 export interface CreateSlideParams {
   presentationId: string;
   insertionIndex?: number;
+  backgroundColor?: string;  // hex e.g. "#1A73E8"
 }
 
 export async function createSlideTool(
   client: SlidesClient,
   params: CreateSlideParams
 ): Promise<ToolResponse> {
+  const errBg = validateHexColor(params.backgroundColor, 'backgroundColor');
+  if (errBg) return createErrorResponse('validation', errBg);
+
   try {
+    // Pre-specify the slide ID only when we need to reference it in the same
+    // batchUpdate (i.e. when setting backgroundColor). Otherwise omit it so
+    // the API assigns the ID itself and we read it back from the response.
+    const preassignedId = params.backgroundColor != null ? genId('slide') : undefined;
+
     const requests: any[] = [
       {
-        createSlide: params.insertionIndex !== undefined
-          ? { insertionIndex: params.insertionIndex }
-          : {},
+        createSlide: {
+          ...(preassignedId !== undefined ? { objectId: preassignedId } : {}),
+          ...(params.insertionIndex !== undefined ? { insertionIndex: params.insertionIndex } : {}),
+        },
       },
     ];
 
+    if (params.backgroundColor != null) {
+      requests.push({
+        updatePageProperties: {
+          objectId: preassignedId,
+          pageProperties: {
+            pageBackgroundFill: {
+              solidFill: { color: { rgbColor: parseHexColor(params.backgroundColor) } },
+            },
+          },
+          fields: 'pageBackgroundFill.solidFill',
+        },
+      });
+    }
+
     const response = await client.batchUpdate(params.presentationId, requests);
 
-    const slideId = response.replies?.[0]?.createSlide?.objectId;
+    const slideId: string | undefined =
+      preassignedId ?? (response as any)?.replies?.[0]?.createSlide?.objectId;
+
     if (!slideId) {
-      return createErrorResponse(
-        'validation',
-        'No slide ID returned from API'
-      );
+      return createErrorResponse('api', 'No slide ID returned — the slide may not have been created');
     }
 
     return createSuccessResponse(
@@ -151,3 +176,5 @@ export { slideReorderTool, SlideReorderParams } from './reorder.js';
 export { slideSetBackgroundTool, SlideSetBackgroundParams } from './set-background.js';
 export { slideThumbnailTool, SlideThumbnailParams } from './thumbnail.js';
 export { slideGetNotesTool, SlideGetNotesParams, slideSetNotesTool, SlideSetNotesParams } from './notes.js';
+export { presentationListLayoutsTool, PresentationListLayoutsParams, slideSetLayoutTool, SlideSetLayoutParams } from './layouts.js';
+export { slideExtractTool, SlideExtractParams } from './extract.js';

@@ -18,7 +18,10 @@ export async function elementUpdateTextTool(
   params: ElementUpdateTextParams
 ): Promise<ToolResponse> {
   try {
-    await client.batchUpdate(params.presentationId, [
+    // Always send deleteText + insertText. The Google Slides API is idempotent
+    // for deleteText on elements with no text (it simply becomes a no-op),
+    // so we skip the extra getElement round-trip.
+    const requests: any[] = [
       {
         deleteText: {
           objectId: params.elementId,
@@ -32,7 +35,9 @@ export async function elementUpdateTextTool(
           insertionIndex: 0,
         },
       },
-    ]);
+    ];
+
+    await client.batchUpdate(params.presentationId, requests);
 
     return createSuccessResponse(
       formatResponse('simple', `Updated text on element: ${params.elementId}`),
