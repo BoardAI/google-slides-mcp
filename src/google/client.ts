@@ -72,56 +72,62 @@ export class SlidesClient {
   }
 
   private handleError(error: any): SlidesAPIError {
-    const code = error.code || error.response?.status || 500;
+    const code = error.response?.status || (typeof error.code === 'number' ? error.code : 500);
     const message = error.message || 'Unknown error occurred';
+    const details = error.response?.data;
 
-    // Map common errors to user-friendly messages
+    // Extract Google API error message when available
+    const apiMessage: string | undefined =
+      details?.error?.message ||
+      details?.error?.errors?.[0]?.message ||
+      (typeof details === 'string' ? details : undefined);
+
     switch (code) {
       case 400:
         return new SlidesAPIError(
-          `Invalid request: ${message}`,
+          `Invalid request: ${apiMessage ?? message}`,
           400,
-          error.response?.data,
+          details,
           false
         );
       case 401:
         return new SlidesAPIError(
           'Authentication failed. Please re-authenticate.',
           401,
-          error.response?.data,
+          details,
           false
         );
       case 403:
         return new SlidesAPIError(
-          'Permission denied. Check presentation sharing settings.',
+          apiMessage ?? 'Permission denied. Check that the Google Drive API is enabled and presentation sharing settings are correct.',
           403,
-          error.response?.data,
+          details,
           false
         );
       case 404:
         return new SlidesAPIError(
           'Presentation not found. It may have been deleted.',
           404,
-          error.response?.data,
+          details,
           false
         );
       case 429:
         return new SlidesAPIError(
           'Rate limit exceeded. Please try again in a moment.',
           429,
-          error.response?.data,
-          true // Retryable
+          details,
+          true
         );
       case 500:
       case 503:
         return new SlidesAPIError(
-          'Google Slides API is temporarily unavailable.',
+          apiMessage ?? 'Google API is temporarily unavailable.',
           code,
-          error.response?.data,
-          true // Retryable
+          details,
+          true
         );
       default:
-        return new SlidesAPIError(message, code, error.response?.data, false);
+        return new SlidesAPIError(apiMessage ?? message, code, details, false);
     }
   }
 
