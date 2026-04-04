@@ -28,6 +28,8 @@ import {
   PresentationRenameParams,
   presentationGetDesignSystemTool,
   PresentationGetDesignSystemParams,
+  presentationBuildTool,
+  PresentationBuildParams,
 } from './tools/presentation/index.js';
 import {
   createSlideTool,
@@ -50,6 +52,10 @@ import {
   SlideSetNotesParams,
   slideBuildTool,
   SlideBuildParams,
+  slideDuplicateModifyTool,
+  SlideDuplicateModifyParams,
+  slideReadTool,
+  SlideReadParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
@@ -657,6 +663,26 @@ async function main() {
           }
         }
 
+        case 'slide_duplicate_modify': {
+          const params = args as unknown as SlideDuplicateModifyParams;
+          const result = await slideDuplicateModifyTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'slide_read': {
+          const params = args as unknown as SlideReadParams;
+          const result = await slideReadTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
         case 'element_find': {
           const params = args as unknown as ElementFindParams;
           const result = await elementFindTool(client, params);
@@ -841,6 +867,15 @@ async function main() {
           }
         }
 
+        case 'presentation_build': {
+          const params = args as unknown as PresentationBuildParams;
+          const result = await presentationBuildTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
 
         case 'add_text_box': {
           const params = args as unknown as AddTextBoxParams;

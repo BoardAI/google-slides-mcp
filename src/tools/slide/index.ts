@@ -177,3 +177,5 @@ export { slideSetBackgroundTool, SlideSetBackgroundParams } from './set-backgrou
 export { slideThumbnailTool, SlideThumbnailParams } from './thumbnail.js';
 export { slideGetNotesTool, SlideGetNotesParams, slideSetNotesTool, SlideSetNotesParams } from './notes.js';
 export { slideBuildTool, SlideBuildParams } from './build.js';
+export { slideDuplicateModifyTool, SlideDuplicateModifyParams } from './duplicate-modify.js';
+export { slideReadTool, SlideReadParams } from './read.js';

@@ -6,15 +6,20 @@ import {
   createErrorResponse,
   formatResponse,
 } from '../../utils/response.js';
+import { Theme } from '../theme/types.js';
+import { resolveElement, resolveColor } from '../theme/resolve.js';
+import { computeLayout } from '../layout/engine.js';
+import { LayoutContainer } from '../layout/types.js';
 
-interface ElementSpec {
+export interface ElementSpec {
   type: 'shape' | 'textbox' | 'image' | 'icon';
   id?: string;
+  role?: string; // theme role (e.g. "title", "h1", "body") - resolved via theme
   shapeType?: string; // RECTANGLE, ROUND_RECTANGLE, ELLIPSE, etc.
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
   fillColor?: string;
   borderColor?: string;
   borderWidth?: number;
@@ -42,6 +47,16 @@ export interface SlideBuildParams {
   presentationId: string;
   slideId: string;
   elements: ElementSpec[];
+  theme?: Theme;
+  layout?: {
+    type: 'row' | 'column' | 'grid';
+    columns?: number;
+    gap?: number;
+    x?: number;       // container x, default 60
+    y?: number;       // container y, default 100
+    width?: number;   // container width, default 600
+    height?: number;  // container height, default 260
+  };
 }
 
 function hexToRgb(hex: string): { red: number; green: number; blue: number } {
@@ -92,11 +107,64 @@ export async function slideBuildTool(
   params: SlideBuildParams
 ): Promise<ToolResponse> {
   try {
+    // Resolve theme roles and color keys if a theme is provided
+    if (params.theme) {
+      params.elements = params.elements.map((el) => {
+        const resolved = resolveElement(el, params.theme!);
+        // Also resolve color keys in fillColor, borderColor
+        if (resolved.fillColor) resolved.fillColor = resolveColor(resolved.fillColor, params.theme!) || resolved.fillColor;
+        if (resolved.borderColor) resolved.borderColor = resolveColor(resolved.borderColor, params.theme!) || resolved.borderColor;
+        return resolved;
+      });
+    }
+
+    // Apply layout to elements without explicit x/y/width/height
+    if (params.layout) {
+      const layoutElements = params.elements.filter(
+        el => el.x === undefined && el.y === undefined && el.width === undefined && el.height === undefined
+      );
+
+      if (layoutElements.length > 0) {
+        const container: LayoutContainer = {
+          x: params.layout.x ?? 60,
+          y: params.layout.y ?? 100,
+          width: params.layout.width ?? 600,
+          height: params.layout.height ?? 260,
+        };
+
+        const positions = computeLayout(container, layoutElements.length, {
+          type: params.layout.type,
+          columns: params.layout.columns,
+          gap: params.layout.gap,
+        });
+
+        let layoutIdx = 0;
+        for (const el of params.elements) {
+          if (el.x === undefined && el.y === undefined && el.width === undefined && el.height === undefined) {
+            const pos = positions[layoutIdx];
+            el.x = pos.x;
+            el.y = pos.y;
+            el.width = pos.width;
+            el.height = pos.height;
+            layoutIdx++;
+          }
+        }
+      }
+    }
+
+    // Default any remaining undefined positions to 0
+    for (const el of params.elements) {
+      if (el.x === undefined) el.x = 0;
+      if (el.y === undefined) el.y = 0;
+      if (el.width === undefined) el.width = 100;
+      if (el.height === undefined) el.height = 100;
+    }
+
     const requests: any[] = [];
     const createdIds: string[] = [];
 
     for (let i = 0; i < params.elements.length; i++) {
-      const el = params.elements[i];
+      const el = params.elements[i] as ElementSpec & { x: number; y: number; width: number; height: number };
       const elementId = generateSemanticId(el, i);
       createdIds.push(elementId);
 

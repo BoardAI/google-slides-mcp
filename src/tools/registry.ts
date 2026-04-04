@@ -93,6 +93,113 @@ export const TOOL_REGISTRY = [
     },
   },
 
+  {
+    name: 'presentation_build',
+    description: 'Build an entire presentation from scratch in a single call. Creates the presentation, sets theme colors on the master, then creates each slide with background color, elements (shapes, text boxes, images, icons), and speaker notes. Elements can use theme roles (e.g. role: "title") instead of specifying fontSize/fontFamily/fontColor individually. Much faster than creating slides one at a time.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the new presentation' },
+        theme: {
+          type: 'object',
+          description: 'Optional design theme with colors, fonts, and text style roles. If provided, elements can use role: "title" etc. to inherit styles.',
+          properties: {
+            colors: {
+              type: 'object',
+              description: 'Named color palette. Keys: bg_dark, bg_light, bg_surface, bg_surface_dk, text_primary, text_inv, text_secondary, text_muted, text_muted_dk, accent, divider_dk. Values are hex strings.',
+              additionalProperties: { type: 'string' },
+            },
+            fonts: {
+              type: 'object',
+              description: 'Font families. Keys: heading, body.',
+              properties: {
+                heading: { type: 'string', description: 'Heading font family, e.g. "Playfair Display"' },
+                body: { type: 'string', description: 'Body font family, e.g. "Inter"' },
+              },
+              required: ['heading', 'body'],
+            },
+            roles: {
+              type: 'object',
+              description: 'Named text style roles. Built-in keys: title, h1, h2, subtitle, body, caption, stat, stat_label, label, card_title, card_body, button. Custom roles are allowed.',
+              additionalProperties: {
+                type: 'object',
+                properties: {
+                  fontSize: { type: 'number' },
+                  bold: { type: 'boolean' },
+                  italic: { type: 'boolean' },
+                  font: { type: 'string', enum: ['heading', 'body'], description: 'Font key to resolve from theme.fonts' },
+                  color: { type: 'string', description: 'Color key from theme.colors (e.g. "text_primary") or hex string' },
+                  alignment: { type: 'string', enum: ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'] },
+                  lineSpacing: { type: 'number' },
+                },
+                required: ['fontSize', 'font', 'color'],
+              },
+            },
+          },
+          required: ['colors', 'fonts', 'roles'],
+        },
+        slides: {
+          type: 'array',
+          description: 'Array of slide specifications',
+          items: {
+            type: 'object',
+            properties: {
+              backgroundColor: { type: 'string', description: 'Background color as hex (e.g. "#0F172A") or theme color key (e.g. "bg_dark")' },
+              notes: { type: 'string', description: 'Speaker notes text for this slide' },
+              elements: {
+                type: 'array',
+                description: 'Array of element specifications (same as slide_build elements, plus optional role field)',
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', enum: ['shape', 'textbox', 'image', 'icon'], description: 'Element type' },
+                    role: { type: 'string', description: 'Theme role name (e.g. "title", "h1", "body"). Inherits fontSize, fontFamily, fontColor, bold, italic, alignment, lineSpacing from the role. Per-element overrides win.' },
+                    id: { type: 'string', description: 'Optional custom element ID' },
+                    shapeType: { type: 'string', description: 'Shape type: RECTANGLE, ROUND_RECTANGLE, ELLIPSE, etc.' },
+                    x: { type: 'number', description: 'X position in points' },
+                    y: { type: 'number', description: 'Y position in points' },
+                    width: { type: 'number', description: 'Width in points' },
+                    height: { type: 'number', description: 'Height in points' },
+                    fillColor: { type: 'string', description: 'Fill color as hex or theme color key' },
+                    borderColor: { type: 'string', description: 'Border color as hex or theme color key' },
+                    borderWidth: { type: 'number', description: 'Border width in points (min 0.5)' },
+                    text: { type: 'string', description: 'Text content' },
+                    fontSize: { type: 'number', description: 'Font size in points (overrides role)' },
+                    fontFamily: { type: 'string', description: 'Font family (overrides role)' },
+                    fontColor: { type: 'string', description: 'Text color as hex or theme color key (overrides role)' },
+                    bold: { type: 'boolean', description: 'Bold text (overrides role)' },
+                    italic: { type: 'boolean', description: 'Italic text (overrides role)' },
+                    alignment: { type: 'string', enum: ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'], description: 'Text alignment (overrides role)' },
+                    lineSpacing: { type: 'number', description: 'Line spacing as percentage (overrides role)' },
+                    imageUrl: { type: 'string', description: 'Public HTTPS URL for image elements' },
+                    boldRange: {
+                      type: 'object',
+                      properties: {
+                        start: { type: 'integer' },
+                        end: { type: 'integer' },
+                        fontSize: { type: 'number' },
+                        color: { type: 'string' },
+                      },
+                      required: ['start', 'end'],
+                    },
+                    autoFit: { type: 'string', enum: ['NONE', 'TEXT_AUTOFIT', 'SHAPE_AUTOFIT'] },
+                    verticalAlignment: { type: 'string', enum: ['TOP', 'MIDDLE', 'BOTTOM'] },
+                    icon: { type: 'string', description: 'Icons8 icon slug' },
+                    iconColor: { type: 'string', description: 'Icon color hex without #' },
+                    iconStyle: { type: 'string', enum: ['ios-filled', 'ios', 'fluency', 'material-rounded', 'color'] },
+                  },
+                  required: ['type', 'x', 'y', 'width', 'height'],
+                },
+              },
+            },
+            required: ['elements'],
+          },
+        },
+      },
+      required: ['title', 'slides'],
+    },
+  },
+
   // ─── Slide ──────────────────────────────────────────────────────────────────
   {
     name: 'slide_create',
@@ -217,12 +324,21 @@ export const TOOL_REGISTRY = [
 
   {
     name: 'slide_build',
-    description: 'Build an entire slide in a single API call. Pass an array of element specs (shapes, text boxes, images, icons) and they are all created, sized, styled, and formatted in one batch request. This is much faster than creating elements one at a time. Shapes are created with correct size/position (bypasses the element_add_shape sizing bug). Text is inserted and formatted inline. Icons use Icons8 PNG library (pass icon slug + color).',
+    description: 'Build an entire slide in a single API call. Pass an array of element specs (shapes, text boxes, images, icons) and they are all created, sized, styled, and formatted in one batch request. This is much faster than creating elements one at a time. Shapes are created with correct size/position (bypasses the element_add_shape sizing bug). Text is inserted and formatted inline. Icons use Icons8 PNG library (pass icon slug + color). Optionally pass a theme object to use role-based styling.',
     inputSchema: {
       type: 'object',
       properties: {
         presentationId: { type: 'string', description: 'The ID of the presentation' },
         slideId: { type: 'string', description: 'The ID of the slide to build on' },
+        theme: {
+          type: 'object',
+          description: 'Optional theme for role-based styling. Same schema as presentation_build theme.',
+          properties: {
+            colors: { type: 'object', additionalProperties: { type: 'string' } },
+            fonts: { type: 'object', properties: { heading: { type: 'string' }, body: { type: 'string' } }, required: ['heading', 'body'] },
+            roles: { type: 'object', additionalProperties: { type: 'object' } },
+          },
+        },
         elements: {
           type: 'array',
           description: 'Array of element specifications',
@@ -230,6 +346,7 @@ export const TOOL_REGISTRY = [
             type: 'object',
             properties: {
               type: { type: 'string', enum: ['shape', 'textbox', 'image', 'icon'], description: 'Element type' },
+              role: { type: 'string', description: 'Theme role name (e.g. "title", "body"). Requires theme to be set.' },
               id: { type: 'string', description: 'Optional custom element ID' },
               shapeType: { type: 'string', description: 'Shape type: RECTANGLE, ROUND_RECTANGLE, ELLIPSE, etc.' },
               x: { type: 'number', description: 'X position in points' },
@@ -265,11 +382,71 @@ export const TOOL_REGISTRY = [
               iconColor: { type: 'string', description: 'Icon color hex without # (default: "000000"). Use accent for brand, "FFFFFF" for white on dark bg' },
               iconStyle: { type: 'string', enum: ['ios-filled', 'ios', 'fluency', 'material-rounded', 'color'], description: 'Icons8 style (default: "ios-filled")' },
             },
-            required: ['type', 'x', 'y', 'width', 'height'],
+            required: ['type'],
           },
+        },
+        layout: {
+          type: 'object',
+          description: 'Auto-layout directive. Elements WITHOUT explicit x/y/width/height are positioned by the layout engine. Elements WITH explicit positions are left alone. Combine a manually-positioned title with auto-laid-out cards.',
+          properties: {
+            type: { type: 'string', enum: ['row', 'column', 'grid'], description: 'Layout type: row (horizontal), column (vertical), grid (N columns with auto rows)' },
+            columns: { type: 'integer', description: 'Number of columns for grid layout (default: 2)', minimum: 1 },
+            gap: { type: 'number', description: 'Gap in points between items (default: 15)' },
+            x: { type: 'number', description: 'Container x position in points (default: 60)' },
+            y: { type: 'number', description: 'Container y position in points (default: 100)' },
+            width: { type: 'number', description: 'Container width in points (default: 600)' },
+            height: { type: 'number', description: 'Container height in points (default: 260)' },
+          },
+          required: ['type'],
         },
       },
       required: ['presentationId', 'slideId', 'elements'],
+    },
+  },
+
+  {
+    name: 'slide_duplicate_modify',
+    description: 'Duplicate a slide and apply targeted element changes (text, colors, fonts) in one call. Returns the new slide ID and element ID mapping (original -> new). Changes reference original element IDs and are automatically mapped to the duplicated elements.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+        sourceSlideId: { type: 'string', description: 'The ID of the slide to duplicate' },
+        insertionIndex: { type: 'number', description: 'Optional zero-based index where the duplicated slide should be inserted' },
+        changes: {
+          type: 'array',
+          description: 'Array of element changes to apply after duplication. Use the ORIGINAL element IDs (they are mapped to new IDs automatically).',
+          items: {
+            type: 'object',
+            properties: {
+              elementId: { type: 'string', description: 'The original element ID to modify (mapped to new ID automatically)' },
+              text: { type: 'string', description: 'New text content (replaces existing text)' },
+              fontSize: { type: 'number', description: 'New font size in points' },
+              fontColor: { type: 'string', description: 'New text color as hex, e.g. "#FFFFFF"' },
+              fontFamily: { type: 'string', description: 'New font family' },
+              bold: { type: 'boolean', description: 'Set text bold' },
+              fillColor: { type: 'string', description: 'New shape fill color as hex' },
+              borderColor: { type: 'string', description: 'New shape border color as hex' },
+            },
+            required: ['elementId'],
+          },
+        },
+      },
+      required: ['presentationId', 'sourceSlideId'],
+    },
+  },
+
+  {
+    name: 'slide_read',
+    description: 'Read a slide and return its content as ElementSpec-compatible JSON. Enables round-trip editing: read a slide, modify the output, pass it back to slide_build. Extracts shapes, text boxes, and images with their positions, sizes, colors, text content, and font properties. Identify slide by slideId or slideIndex (0-based).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+        slideId: { type: 'string', description: 'The ID of the slide to read (provide this or slideIndex)' },
+        slideIndex: { type: 'integer', description: 'Zero-based slide position (provide this or slideId)', minimum: 0 },
+      },
+      required: ['presentationId'],
     },
   },
 

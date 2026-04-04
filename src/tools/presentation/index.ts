@@ -12,6 +12,7 @@ export { presentationExportTool, PresentationExportParams } from './export.js';
 export { createFromTemplateTool, CreateFromTemplateParams } from './create-from-template.js';
 export { presentationRenameTool, PresentationRenameParams } from './rename.js';
 export { presentationGetDesignSystemTool, PresentationGetDesignSystemParams } from './design-system.js';
+export { presentationBuildTool, PresentationBuildParams } from './build.js';
 
 export interface CreatePresentationParams {
   title: string;
