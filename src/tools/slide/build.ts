@@ -10,6 +10,7 @@ import { Theme } from '../theme/types.js';
 import { resolveElement, resolveColor } from '../theme/resolve.js';
 import { computeLayout } from '../layout/engine.js';
 import { LayoutContainer } from '../layout/types.js';
+import { validateSlide, ValidationWarning } from '../validation/check.js';
 
 export interface ElementSpec {
   type: 'shape' | 'textbox' | 'image' | 'icon';
@@ -57,6 +58,7 @@ export interface SlideBuildParams {
     width?: number;   // container width, default 600
     height?: number;  // container height, default 260
   };
+  validate?: boolean; // run post-build validation (extra API call), default false
 }
 
 function hexToRgb(hex: string): { red: number; green: number; blue: number } {
@@ -447,15 +449,65 @@ export async function slideBuildTool(
 
     await client.batchUpdate(params.presentationId, requests);
 
-    return createSuccessResponse(
-      formatResponse('complex', `Built slide with ${params.elements.length} elements`, {
-        slideId: params.slideId,
-        elementCount: params.elements.length,
-        elementIds: createdIds,
-        requestCount: requests.length,
-      }),
-      { slideId: params.slideId, elementIds: createdIds }
-    );
+    // Build structured element summary from resolved specs (positions are final at this point)
+    const elementSummaries: string[] = [];
+    for (let i = 0; i < params.elements.length; i++) {
+      const el = params.elements[i] as ElementSpec & { x: number; y: number; width: number; height: number };
+      const id = createdIds[i];
+      const rolePart = el.role ? `, role: ${el.role}` : '';
+
+      let typePart: string;
+      if (el.type === 'textbox') {
+        typePart = `textbox${rolePart}`;
+      } else if (el.type === 'shape') {
+        typePart = `shape, ${el.shapeType || 'RECTANGLE'}${rolePart}`;
+      } else if (el.type === 'image') {
+        typePart = `image${rolePart}`;
+      } else if (el.type === 'icon') {
+        typePart = `icon, ${el.icon || 'unknown'}${rolePart}`;
+      } else {
+        typePart = `${el.type}${rolePart}`;
+      }
+
+      elementSummaries.push(
+        `  ${id} (${typePart}) at ${Math.round(el.x)},${Math.round(el.y)} ${Math.round(el.width)}x${Math.round(el.height)}`
+      );
+    }
+
+    // Run validation if requested
+    let validationWarnings: ValidationWarning[] = [];
+    if (params.validate) {
+      try {
+        validationWarnings = await validateSlide(
+          client,
+          params.presentationId,
+          params.slideId,
+          createdIds
+        );
+      } catch (_err) {
+        // Validation is best-effort, don't fail the build
+      }
+    }
+
+    const warningsText = validationWarnings.length > 0
+      ? validationWarnings.map(w => `  ${w.type}: ${w.message}`).join('\n')
+      : 'none';
+
+    const message = [
+      `Built slide with ${params.elements.length} elements`,
+      '',
+      `Slide Id: ${params.slideId}`,
+      'Elements:',
+      ...elementSummaries,
+      '',
+      `Warnings: ${warningsText}`,
+    ].join('\n');
+
+    return createSuccessResponse(message, {
+      slideId: params.slideId,
+      elementIds: createdIds,
+      warnings: validationWarnings.length > 0 ? validationWarnings : undefined,
+    });
   } catch (error: any) {
     if (error instanceof SlidesAPIError) {
       return createErrorResponse('api', error.message, error.details, error.retryable);

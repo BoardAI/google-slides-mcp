@@ -21,6 +21,7 @@ export interface PresentationBuildParams {
   title: string;
   theme?: Theme;
   slides: SlideSpec[];
+  validate?: boolean; // run post-build validation on each slide, default false
 }
 
 /**
@@ -101,10 +102,17 @@ export async function presentationBuildTool(
           slideId,
           elements: spec.elements,
           theme: params.theme,
+          validate: params.validate,
         });
 
         if (buildResult.success && buildResult.data?.elementIds) {
           elementIds = buildResult.data.elementIds;
+          // Collect validation warnings from slide build
+          if (buildResult.data?.warnings) {
+            for (const w of buildResult.data.warnings) {
+              warnings.push(`Slide ${i} (${slideId}): ${w.type}: ${w.message}`);
+            }
+          }
         } else if (!buildResult.success) {
           warnings.push(`Slide ${i}: element build failed: ${(buildResult as any).error?.message}`);
         }
