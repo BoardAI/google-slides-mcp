@@ -26,10 +26,6 @@ import {
   CreateFromTemplateParams,
   presentationRenameTool,
   PresentationRenameParams,
-  presentationOutlineTool,
-  PresentationOutlineParams,
-  presentationDuplicateTool,
-  PresentationDuplicateParams,
   presentationGetDesignSystemTool,
   PresentationGetDesignSystemParams,
 } from './tools/presentation/index.js';
@@ -52,12 +48,8 @@ import {
   SlideGetNotesParams,
   slideSetNotesTool,
   SlideSetNotesParams,
-  presentationListLayoutsTool,
-  PresentationListLayoutsParams,
-  slideSetLayoutTool,
-  SlideSetLayoutParams,
-  slideExtractTool,
-  SlideExtractParams,
+  slideBuildTool,
+  SlideBuildParams,
 } from './tools/slide/index.js';
 import {
   deleteElementTool,
@@ -88,10 +80,6 @@ import {
   ElementUngroupParams,
   elementSetLinkTool,
   ElementSetLinkParams,
-  elementReplaceTextTool,
-  ElementReplaceTextParams,
-  elementSetAutofitTool,
-  ElementSetAutofitParams,
 } from './tools/element/index.js';
 import {
   addTextBoxTool,
@@ -102,13 +90,9 @@ import {
   AddImageParams,
 } from './tools/helpers/image.js';
 import {
-  addVideoTool,
-  AddVideoParams,
-} from './tools/helpers/video.js';
-import {
-  addLineTool,
-  AddLineParams,
-} from './tools/helpers/line.js';
+  addIconTool,
+  AddIconParams,
+} from './tools/helpers/icon.js';
 import {
   addTableTool,
   AddTableParams,
@@ -125,7 +109,6 @@ import {
   tableSetColumnWidthTool,
   tableMergeCellsTool,
   tableUnmergeCellsTool,
-  tableSetBorderTool,
   TableUnmergeCellsParams,
   TableSetCellParams,
   TableFormatCellTextParams,
@@ -137,7 +120,6 @@ import {
   TableDeleteColumnsParams,
   TableSetColumnWidthParams,
   TableMergeCellsParams,
-  TableSetBorderParams,
 } from './tools/table/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -665,6 +647,16 @@ async function main() {
           }
         }
 
+        case 'slide_build': {
+          const params = args as unknown as SlideBuildParams;
+          const result = await slideBuildTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
         case 'element_find': {
           const params = args as unknown as ElementFindParams;
           const result = await elementFindTool(client, params);
@@ -803,16 +795,6 @@ async function main() {
           }
         }
 
-        case 'table_set_border': {
-          const params = args as unknown as TableSetBorderParams;
-          const result = await tableSetBorderTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
         case 'table_merge_cells': {
           const params = args as unknown as TableMergeCellsParams;
           const result = await tableMergeCellsTool(client, params);
@@ -839,9 +821,9 @@ async function main() {
           }
         }
 
-        case 'presentation_outline': {
-          const params = args as unknown as PresentationOutlineParams;
-          const result = await presentationOutlineTool(client, params);
+        case 'add_icon': {
+          const params = args as unknown as AddIconParams;
+          const result = await addIconTool(client, params);
           if (result.success) {
             return { content: [{ type: 'text', text: result.message }] };
           } else {
@@ -849,15 +831,6 @@ async function main() {
           }
         }
 
-        case 'presentation_duplicate': {
-          const params = args as unknown as PresentationDuplicateParams;
-          const result = await presentationDuplicateTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
         case 'presentation_get_design_system': {
           const params = args as unknown as PresentationGetDesignSystemParams;
           const result = await presentationGetDesignSystemTool(client, params);
@@ -868,76 +841,6 @@ async function main() {
           }
         }
 
-
-        case 'add_line': {
-          const params = args as unknown as AddLineParams;
-          const result = await addLineTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'add_video': {
-          const params = args as unknown as AddVideoParams;
-          const result = await addVideoTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'element_replace_text': {
-          const params = args as unknown as ElementReplaceTextParams;
-          const result = await elementReplaceTextTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'element_set_autofit': {
-          const params = args as unknown as ElementSetAutofitParams;
-          const result = await elementSetAutofitTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'presentation_list_layouts': {
-          const params = args as unknown as PresentationListLayoutsParams;
-          const result = await presentationListLayoutsTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'slide_set_layout': {
-          const params = args as unknown as SlideSetLayoutParams;
-          const result = await slideSetLayoutTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
-
-        case 'slide_extract': {
-          const params = args as unknown as SlideExtractParams;
-          const result = await slideExtractTool(client, params);
-          if (result.success) {
-            return { content: [{ type: 'text', text: result.message }] };
-          } else {
-            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
-          }
-        }
 
         case 'add_text_box': {
           const params = args as unknown as AddTextBoxParams;

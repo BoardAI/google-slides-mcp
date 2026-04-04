@@ -107,7 +107,7 @@ export async function elementFormatTextTool(
       const style: Record<string, any> = {};
       const fields: string[] = [];
 
-      if (alignment != null)   { style.alignment = alignment; fields.push('alignment'); }
+      if (alignment != null)   { style.alignment = alignment === 'LEFT' ? 'START' : alignment; fields.push('alignment'); }
       if (lineSpacing != null) { style.lineSpacing = lineSpacing; fields.push('lineSpacing'); }
       if (spaceAbove != null)  { style.spaceAbove = { magnitude: spaceAbove, unit: 'PT' }; fields.push('spaceAbove'); }
       if (spaceBelow != null)  { style.spaceBelow = { magnitude: spaceBelow, unit: 'PT' }; fields.push('spaceBelow'); }

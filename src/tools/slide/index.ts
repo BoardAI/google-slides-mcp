@@ -176,5 +176,4 @@ export { slideReorderTool, SlideReorderParams } from './reorder.js';
 export { slideSetBackgroundTool, SlideSetBackgroundParams } from './set-background.js';
 export { slideThumbnailTool, SlideThumbnailParams } from './thumbnail.js';
 export { slideGetNotesTool, SlideGetNotesParams, slideSetNotesTool, SlideSetNotesParams } from './notes.js';
-export { presentationListLayoutsTool, PresentationListLayoutsParams, slideSetLayoutTool, SlideSetLayoutParams } from './layouts.js';
-export { slideExtractTool, SlideExtractParams } from './extract.js';
+export { slideBuildTool, SlideBuildParams } from './build.js';

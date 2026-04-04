@@ -28,17 +28,35 @@ export async function tableSetCellTool(
   const cellLocation = { rowIndex: row, columnIndex: column };
 
   try {
-    // Always include deleteText to clear existing content. The Google Slides
-    // API handles this gracefully even for empty cells.
-    const requests: any[] = [
-      {
+    // Check if cell has existing text before trying to delete.
+    // deleteText with type: 'ALL' fails on empty cells.
+    let hasExistingText = false;
+    try {
+      const pres = await client.getPresentation(presentationId);
+      const slide = pres.slides?.find((s: any) =>
+        s.pageElements?.some((e: any) => e.objectId === tableId)
+      );
+      const tableEl = slide?.pageElements?.find((e: any) => e.objectId === tableId);
+      const cell = tableEl?.table?.tableRows?.[row]?.tableCells?.[column];
+      const textContent = cell?.text?.textElements;
+      if (textContent && textContent.length > 1) {
+        hasExistingText = true;
+      }
+    } catch {
+      // If check fails, try delete anyway
+      hasExistingText = true;
+    }
+
+    const requests: any[] = [];
+    if (hasExistingText) {
+      requests.push({
         deleteText: {
           objectId: tableId,
           cellLocation,
           textRange: { type: 'ALL' },
         },
-      },
-    ];
+      });
+    }
 
     if (text !== '') {
       requests.push({

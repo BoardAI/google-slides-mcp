@@ -18,24 +18,36 @@ export async function elementUpdateTextTool(
   params: ElementUpdateTextParams
 ): Promise<ToolResponse> {
   try {
-    // Always send deleteText + insertText. The Google Slides API is idempotent
-    // for deleteText on elements with no text (it simply becomes a no-op),
-    // so we skip the extra getElement round-trip.
-    const requests: any[] = [
-      {
+    // Check if element has existing text before trying to delete.
+    // deleteText with type: 'ALL' fails on empty shapes (startIndex 0 == endIndex 0).
+    let hasExistingText = false;
+    try {
+      const element = await client.getElement(params.presentationId, params.elementId);
+      const textContent = (element as any)?.shape?.text?.textElements;
+      if (textContent && textContent.length > 1) {
+        hasExistingText = true;
+      }
+    } catch {
+      // If we can't check, try delete anyway
+      hasExistingText = true;
+    }
+
+    const requests: any[] = [];
+    if (hasExistingText) {
+      requests.push({
         deleteText: {
           objectId: params.elementId,
           textRange: { type: 'ALL' },
         },
+      });
+    }
+    requests.push({
+      insertText: {
+        objectId: params.elementId,
+        text: params.text,
+        insertionIndex: 0,
       },
-      {
-        insertText: {
-          objectId: params.elementId,
-          text: params.text,
-          insertionIndex: 0,
-        },
-      },
-    ];
+    });
 
     await client.batchUpdate(params.presentationId, requests);
 

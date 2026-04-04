@@ -11,8 +11,6 @@ export { presentationListTool, PresentationListParams } from './list.js';
 export { presentationExportTool, PresentationExportParams } from './export.js';
 export { createFromTemplateTool, CreateFromTemplateParams } from './create-from-template.js';
 export { presentationRenameTool, PresentationRenameParams } from './rename.js';
-export { presentationOutlineTool, PresentationOutlineParams } from './outline.js';
-export { presentationDuplicateTool, PresentationDuplicateParams } from './duplicate.js';
 export { presentationGetDesignSystemTool, PresentationGetDesignSystemParams } from './design-system.js';
 
 export interface CreatePresentationParams {

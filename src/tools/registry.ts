@@ -82,40 +82,6 @@ export const TOOL_REGISTRY = [
   },
 
   {
-    name: 'presentation_list_layouts',
-    description: 'List all available slide layouts in a presentation, returning their IDs and display names. Use the returned layoutId with slide_set_layout to apply a layout to a slide.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-      },
-      required: ['presentationId'],
-    },
-  },
-  {
-    name: 'presentation_outline',
-    description: 'Get a readable text outline of all slides in a presentation — slide titles and body text content. Useful for understanding what is in a presentation before editing, or for generating a table of contents.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-      },
-      required: ['presentationId'],
-    },
-  },
-  {
-    name: 'presentation_duplicate',
-    description: 'Create a full copy of an existing presentation in Google Drive. Returns the new presentation ID and URL. Useful for creating backups before major edits or for using a finished presentation as a starting point.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation to duplicate' },
-        title: { type: 'string', description: 'Title for the copy (defaults to "Copy of <original title>")' },
-      },
-      required: ['presentationId'],
-    },
-  },
-  {
     name: 'presentation_get_design_system',
     description: 'Extract a compact design system from a presentation: typography (fonts, sizes, spacing), list/bullet styles, shape/card styles (fills, borders, shadows, padding), table styles, all colors used, and layout grid (slide size, margins, vertical rhythm). Returns structured design tokens — does not return raw API data, so it is safe to use on large presentations without exhausting context.',
     inputSchema: {
@@ -248,31 +214,62 @@ export const TOOL_REGISTRY = [
       required: ['presentationId', 'text'],
     },
   },
+
   {
-    name: 'slide_set_layout',
-    description: 'Apply a slide layout to a slide. Use presentation_list_layouts to get the available layoutId values.',
+    name: 'slide_build',
+    description: 'Build an entire slide in a single API call. Pass an array of element specs (shapes, text boxes, images, icons) and they are all created, sized, styled, and formatted in one batch request. This is much faster than creating elements one at a time. Shapes are created with correct size/position (bypasses the element_add_shape sizing bug). Text is inserted and formatted inline. Icons use Icons8 PNG library (pass icon slug + color).',
     inputSchema: {
       type: 'object',
       properties: {
         presentationId: { type: 'string', description: 'The ID of the presentation' },
-        slideId: { type: 'string', description: 'The ID of the slide to update' },
-        layoutId: { type: 'string', description: 'The objectId of the layout to apply (from presentation_list_layouts)' },
+        slideId: { type: 'string', description: 'The ID of the slide to build on' },
+        elements: {
+          type: 'array',
+          description: 'Array of element specifications',
+          items: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', enum: ['shape', 'textbox', 'image', 'icon'], description: 'Element type' },
+              id: { type: 'string', description: 'Optional custom element ID' },
+              shapeType: { type: 'string', description: 'Shape type: RECTANGLE, ROUND_RECTANGLE, ELLIPSE, etc.' },
+              x: { type: 'number', description: 'X position in points' },
+              y: { type: 'number', description: 'Y position in points' },
+              width: { type: 'number', description: 'Width in points' },
+              height: { type: 'number', description: 'Height in points' },
+              fillColor: { type: 'string', description: 'Fill color as hex, e.g. "#3B82F6"' },
+              borderColor: { type: 'string', description: 'Border color as hex' },
+              borderWidth: { type: 'number', description: 'Border width in points (min 0.5)' },
+              text: { type: 'string', description: 'Text content' },
+              fontSize: { type: 'number', description: 'Font size in points' },
+              fontFamily: { type: 'string', description: 'Font family, e.g. "Google Sans"' },
+              fontColor: { type: 'string', description: 'Text color as hex' },
+              bold: { type: 'boolean', description: 'Bold text' },
+              italic: { type: 'boolean', description: 'Italic text' },
+              alignment: { type: 'string', enum: ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'], description: 'Text alignment' },
+              lineSpacing: { type: 'number', description: 'Line spacing as percentage, e.g. 150' },
+              imageUrl: { type: 'string', description: 'Public HTTPS URL for image elements' },
+              boldRange: {
+                type: 'object',
+                description: 'Bold a substring with optional different size/color',
+                properties: {
+                  start: { type: 'integer', description: 'Start index (inclusive)' },
+                  end: { type: 'integer', description: 'End index (exclusive)' },
+                  fontSize: { type: 'number', description: 'Optional different font size for bold range' },
+                  color: { type: 'string', description: 'Optional different color for bold range' },
+                },
+                required: ['start', 'end'],
+              },
+              autoFit: { type: 'string', enum: ['NONE', 'TEXT_AUTOFIT', 'SHAPE_AUTOFIT'], description: 'Auto-fit: TEXT_AUTOFIT shrinks text to fit, SHAPE_AUTOFIT expands box to fit text' },
+              verticalAlignment: { type: 'string', enum: ['TOP', 'MIDDLE', 'BOTTOM'], description: 'Vertical text alignment within shapes (default: TOP)' },
+              icon: { type: 'string', description: 'Icons8 icon slug for type "icon", e.g. "search--v1", "shield", "edit--v1", "book", "bar-chart", "handshake", "robot-2", "visible", "money", "document", "lock", "flash-on"' },
+              iconColor: { type: 'string', description: 'Icon color hex without # (default: "000000"). Use accent for brand, "FFFFFF" for white on dark bg' },
+              iconStyle: { type: 'string', enum: ['ios-filled', 'ios', 'fluency', 'material-rounded', 'color'], description: 'Icons8 style (default: "ios-filled")' },
+            },
+            required: ['type', 'x', 'y', 'width', 'height'],
+          },
+        },
       },
-      required: ['presentationId', 'slideId', 'layoutId'],
-    },
-  },
-  {
-    name: 'slide_extract',
-    description: 'Extract a single slide from a presentation into a brand-new standalone presentation. Copies the source presentation, removes all other slides, and returns the new presentation ID. Note: the Slides API does not support inserting slides into an existing presentation from another presentation.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        sourcePresentationId: { type: 'string', description: 'The ID of the source presentation to extract the slide from' },
-        slideIndex: { type: 'integer', description: 'Index of the slide to extract (0-based). Use this or slideId.', minimum: 0 },
-        slideId: { type: 'string', description: 'Object ID of the slide to extract. Use this or slideIndex.' },
-        title: { type: 'string', description: 'Title for the new presentation (defaults to "Slide N from <source title>")' },
-      },
-      required: ['sourcePresentationId'],
+      required: ['presentationId', 'slideId', 'elements'],
     },
   },
 
@@ -391,34 +388,6 @@ export const TOOL_REGISTRY = [
         placeholderType: { type: 'string', enum: ['TITLE', 'BODY', 'CENTERED_TITLE', 'SUBTITLE', 'DATE_AND_TIME', 'SLIDE_NUMBER', 'FOOTER', 'HEADER', 'OBJECT', 'MEDIA', 'PICTURE', 'CHART', 'TABLE', 'CLIP_ART', 'DIAGRAM', 'SLIDE_IMAGE', 'NONE'], description: 'Filter by placeholder role — e.g. "TITLE" to find title placeholders, "BODY" for content areas' },
       },
       required: ['presentationId'],
-    },
-  },
-  {
-    name: 'element_replace_text',
-    description: 'Find and replace text across all slides (or a single slide). Returns the number of replacements made. Useful for filling in template placeholders like "{{name}}" or "{{date}}".',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-        search: { type: 'string', description: 'Text to search for, e.g. "{{company}}"' },
-        replacement: { type: 'string', description: 'Text to substitute in place of the search text' },
-        matchCase: { type: 'boolean', description: 'Whether the search is case-sensitive (default: false)' },
-        slideId: { type: 'string', description: 'Limit replacement to this slide ID (optional — omit to replace across all slides)' },
-      },
-      required: ['presentationId', 'search', 'replacement'],
-    },
-  },
-  {
-    name: 'element_set_autofit',
-    description: 'Control how a shape or text box resizes to fit its text content. NONE: fixed size (default), TEXT_AUTOFIT: shrink text to fit the box, SHAPE_AUTOFIT: grow/shrink the box to fit the text.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-        elementId: { type: 'string', description: 'The ID of the shape or text box element' },
-        autoFit: { type: 'string', enum: ['NONE', 'TEXT_AUTOFIT', 'SHAPE_AUTOFIT'], description: 'NONE: fixed size; TEXT_AUTOFIT: shrink text to fit; SHAPE_AUTOFIT: resize box to fit text' },
-      },
-      required: ['presentationId', 'elementId', 'autoFit'],
     },
   },
   {
@@ -572,6 +541,24 @@ export const TOOL_REGISTRY = [
     },
   },
   {
+    name: 'add_icon',
+    description: 'Add an icon from Icons8 to a slide. Uses Icons8 PNG library (thousands of professional icons). Pass the icon slug (e.g. "search--v1", "shield", "edit--v1") and optional color/size. Browse icons at https://icons8.com/icons',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+        slideId: { type: 'string', description: 'The ID of the slide' },
+        icon: { type: 'string', description: 'Icons8 icon slug, e.g. "search--v1", "shield", "edit--v1", "book", "bar-chart", "handshake", "robot-2", "visible", "money", "document", "lock", "flash-on", "conference-call", "data-configuration", "checkmark", "goal", "star", "clock--v1", "link"' },
+        x: { type: 'number', description: 'X position in points' },
+        y: { type: 'number', description: 'Y position in points' },
+        size: { type: 'number', description: 'Icon size in points (default: 24). Use 20-24 for inline, 28-32 for cards, 40-48 for large features' },
+        color: { type: 'string', description: 'Icon color as hex (with or without #). Default: "000000" (black). Use accent color for brand, "FFFFFF" for white on dark backgrounds' },
+        style: { type: 'string', enum: ['ios-filled', 'ios', 'fluency', 'material-rounded', 'color'], description: 'Icons8 style (default: "ios-filled"). ios-filled = solid, ios = outline, fluency = modern colored, color = full color' },
+      },
+      required: ['presentationId', 'slideId', 'icon', 'x', 'y'],
+    },
+  },
+  {
     name: 'add_table',
     description: 'Insert a table onto a slide with a specified number of rows and columns',
     inputSchema: {
@@ -587,45 +574,6 @@ export const TOOL_REGISTRY = [
         height: { type: 'number', description: 'Height in points (default: 200)' },
       },
       required: ['presentationId', 'slideId', 'rows', 'columns'],
-    },
-  },
-  {
-    name: 'add_video',
-    description: 'Embed a YouTube video on a slide. Accepts a full YouTube URL (e.g. "https://www.youtube.com/watch?v=dQw4w9WgXcQ") or a bare 11-character video ID.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-        slideId: { type: 'string', description: 'The ID of the slide to add the video to' },
-        videoId: { type: 'string', description: 'YouTube video ID or full YouTube URL' },
-        x: { type: 'number', description: 'X position in points from left edge (default: 100)' },
-        y: { type: 'number', description: 'Y position in points from top edge (default: 100)' },
-        width: { type: 'number', description: 'Width in points (default: 400)' },
-        height: { type: 'number', description: 'Height in points (default: 225, i.e. 16:9 at 400pt wide)' },
-      },
-      required: ['presentationId', 'slideId', 'videoId'],
-    },
-  },
-  {
-    name: 'add_line',
-    description: 'Draw a straight, bent, or curved line between two points on a slide. Specify start (x1,y1) and end (x2,y2) coordinates in points; the tool handles all transform math including diagonal direction. Supports optional color, width, dash style, and arrow heads — all applied in a single API call.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-        slideId: { type: 'string', description: 'The ID of the slide to draw the line on' },
-        x1: { type: 'number', description: 'Start x position in points from left edge of slide' },
-        y1: { type: 'number', description: 'Start y position in points from top edge of slide' },
-        x2: { type: 'number', description: 'End x position in points from left edge of slide' },
-        y2: { type: 'number', description: 'End y position in points from top edge of slide' },
-        lineCategory: { type: 'string', enum: ['STRAIGHT', 'BENT', 'CURVED'], description: 'Line shape category (default: STRAIGHT)' },
-        lineColor: { type: 'string', description: 'Line color as hex, e.g. "#000000"' },
-        lineWidth: { type: 'number', description: 'Line thickness in points, e.g. 2' },
-        dashStyle: { type: 'string', enum: ['SOLID', 'DOT', 'DASH', 'DASH_DOT', 'LONG_DASH', 'LONG_DASH_DOT'], description: 'Dash pattern (default: SOLID)' },
-        startArrow: { type: 'string', enum: ['NONE', 'OPEN_ARROW', 'FILLED_ARROW', 'STEALTH_ARROW', 'OPEN_CIRCLE', 'FILLED_CIRCLE', 'OPEN_SQUARE', 'FILLED_SQUARE'], description: 'Arrowhead at the start of the line' },
-        endArrow: { type: 'string', enum: ['NONE', 'OPEN_ARROW', 'FILLED_ARROW', 'STEALTH_ARROW', 'OPEN_CIRCLE', 'FILLED_CIRCLE', 'OPEN_SQUARE', 'FILLED_SQUARE'], description: 'Arrowhead at the end of the line' },
-      },
-      required: ['presentationId', 'slideId', 'x1', 'y1', 'x2', 'y2'],
     },
   },
 
@@ -773,26 +721,6 @@ export const TOOL_REGISTRY = [
         width: { type: 'number', description: 'Column width in points', exclusiveMinimum: 0 },
       },
       required: ['presentationId', 'tableId', 'columnIndices', 'width'],
-    },
-  },
-  {
-    name: 'table_set_border',
-    description: 'Set border style (color, width, dash pattern) on a range of table cells. Use borderPosition to target specific sides (ALL, TOP, BOTTOM, LEFT, RIGHT, INNER_HORIZONTAL, INNER_VERTICAL, OUTER, INNER).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        presentationId: { type: 'string', description: 'The ID of the presentation' },
-        tableId: { type: 'string', description: 'The ID of the table element' },
-        row: { type: 'integer', description: 'Top-left row index of the cell range (0-based)', minimum: 0 },
-        column: { type: 'integer', description: 'Top-left column index of the cell range (0-based)', minimum: 0 },
-        rowSpan: { type: 'integer', description: 'Number of rows in the range (default: 1)', minimum: 1 },
-        columnSpan: { type: 'integer', description: 'Number of columns in the range (default: 1)', minimum: 1 },
-        borderPosition: { type: 'string', enum: ['ALL', 'BOTTOM', 'INNER', 'INNER_HORIZONTAL', 'INNER_VERTICAL', 'LEFT', 'OUTER', 'RIGHT', 'TOP'], description: 'Which border sides to style (default: ALL)' },
-        borderColor: { type: 'string', description: 'Border color in hex format, e.g. "#000000"' },
-        borderWidth: { type: 'number', description: 'Border width in points, e.g. 1.0', exclusiveMinimum: 0 },
-        dashStyle: { type: 'string', enum: ['SOLID', 'DOT', 'DASH', 'DASH_DOT', 'LONG_DASH', 'LONG_DASH_DOT'], description: 'Border dash pattern' },
-      },
-      required: ['presentationId', 'tableId', 'row', 'column'],
     },
   },
   {

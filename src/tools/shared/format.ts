@@ -2,6 +2,24 @@ import { slides_v1 } from '@googleapis/slides';
 
 export const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 
+let _counter = 0;
+export function genId(prefix = 'obj'): string {
+  return `${prefix}_${Date.now().toString(36)}_${(++_counter).toString(36)}`;
+}
+
+export function buildTextRange(
+  startIndex?: number,
+  endIndex?: number,
+): { type: string; startIndex?: number; endIndex?: number } {
+  if (startIndex != null && endIndex != null) {
+    return { type: 'FIXED_RANGE', startIndex, endIndex };
+  }
+  if (startIndex != null) {
+    return { type: 'FROM_START_INDEX', startIndex };
+  }
+  return { type: 'ALL' };
+}
+
 export function parseHexColor(hex: string): { red: number; green: number; blue: number } {
   return {
     red: parseInt(hex.slice(1, 3), 16) / 255,

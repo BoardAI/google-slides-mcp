@@ -85,6 +85,8 @@ export class OAuthManager {
       return newTokens.access_token;
     }
 
+    // Ensure credentials are set on the client even when not expired
+    this.oauth2Client.setCredentials(tokens);
     return tokens.access_token;
   }
 
