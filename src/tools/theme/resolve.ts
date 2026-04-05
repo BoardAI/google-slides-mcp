@@ -1,11 +1,36 @@
 import { Theme } from './types.js';
 
 /**
+ * Check if a hex color is visually dark (luminance < 0.4).
+ * Used to auto-swap text colors on dark backgrounds.
+ */
+function isDark(hex: string): boolean {
+  const h = hex.replace('#', '');
+  if (h.length < 6) return false;
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+  // Relative luminance (sRGB)
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance < 0.4;
+}
+
+// Map dark-only text color keys to their light counterparts
+const DARK_BG_COLOR_SWAPS: Record<string, string> = {
+  text_primary: 'text_inv',
+  text_secondary: 'text_muted_dk',
+};
+
+/**
  * Resolve an element spec through a theme: apply role defaults,
  * map color keys to hex values, map font keys to font families.
  * Per-element overrides always win over role defaults.
+ *
+ * If slideBgHex is provided and is a dark color, text color keys that would
+ * be unreadable on dark backgrounds are auto-swapped to light variants.
+ * This only applies to role-derived colors (not explicit per-element fontColor).
  */
-export function resolveElement(element: any, theme: Theme): any {
+export function resolveElement(element: any, theme: Theme, slideBgHex?: string): any {
   // If element has no role, return as-is
   if (!element.role) return element;
 
@@ -13,6 +38,7 @@ export function resolveElement(element: any, theme: Theme): any {
   if (!role) return element;
 
   const resolved = { ...element };
+  const onDarkBg = slideBgHex ? isDark(slideBgHex) : false;
 
   // Apply role defaults (only if element doesn't already specify)
   if (!resolved.fontSize && role.fontSize) resolved.fontSize = role.fontSize;
@@ -27,9 +53,15 @@ export function resolveElement(element: any, theme: Theme): any {
     resolved.fontFamily = theme.fonts[fontKey] || fontKey;
   }
 
-  // Resolve font color
+  // Resolve font color (with dark-background auto-swap)
   if (!resolved.fontColor) {
-    const colorKey = role.color;
+    let colorKey = role.color;
+
+    // Auto-swap dark text colors when on a dark background
+    if (onDarkBg && DARK_BG_COLOR_SWAPS[colorKey]) {
+      colorKey = DARK_BG_COLOR_SWAPS[colorKey];
+    }
+
     resolved.fontColor = resolveColor(colorKey, theme) || colorKey;
   }
 

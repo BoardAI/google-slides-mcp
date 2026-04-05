@@ -59,6 +59,7 @@ export interface SlideBuildParams {
     height?: number;  // container height, default 260
   };
   validate?: boolean; // run post-build validation (extra API call), default false
+  slideBgColor?: string; // hex bg color of this slide, used for auto dark/light text color swapping
 }
 
 function hexToRgb(hex: string): { red: number; green: number; blue: number } {
@@ -110,9 +111,14 @@ export async function slideBuildTool(
 ): Promise<ToolResponse> {
   try {
     // Resolve theme roles and color keys if a theme is provided
+    // Pass slideBgColor so the resolver can auto-swap text colors on dark backgrounds
+    const bgHex = params.slideBgColor
+      ? (params.theme ? resolveColor(params.slideBgColor, params.theme) || params.slideBgColor : params.slideBgColor)
+      : undefined;
+
     if (params.theme) {
       params.elements = params.elements.map((el) => {
-        const resolved = resolveElement(el, params.theme!);
+        const resolved = resolveElement(el, params.theme!, bgHex);
         // Also resolve color keys in fillColor, borderColor
         if (resolved.fillColor) resolved.fillColor = resolveColor(resolved.fillColor, params.theme!) || resolved.fillColor;
         if (resolved.borderColor) resolved.borderColor = resolveColor(resolved.borderColor, params.theme!) || resolved.borderColor;

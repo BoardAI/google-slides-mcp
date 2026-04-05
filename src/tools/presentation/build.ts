@@ -103,6 +103,7 @@ export async function presentationBuildTool(
           elements: spec.elements,
           theme: params.theme,
           validate: params.validate,
+          slideBgColor: spec.backgroundColor,
         });
 
         if (buildResult.success && buildResult.data?.elementIds) {
