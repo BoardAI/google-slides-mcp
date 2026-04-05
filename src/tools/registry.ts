@@ -94,6 +94,34 @@ export const TOOL_REGISTRY = [
   },
 
   {
+    name: 'presentation_get_theme',
+    description: 'Read the color theme from a presentation\'s master page. Returns the color scheme mapped to semantic keys (bg_dark, accent, text_primary, etc.). Use this to understand the current theme before adding elements or to copy a theme to another presentation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+      },
+      required: ['presentationId'],
+    },
+  },
+  {
+    name: 'presentation_set_theme',
+    description: 'Set or update the color theme on a presentation\'s master page. Supports partial updates (only pass the colors you want to change). All elements using themeColor references will update automatically. Color keys: bg_dark, bg_light, bg_surface, bg_surface_dk, text_primary, text_inv, text_secondary, text_muted, text_muted_dk, accent, divider_dk.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+        colors: {
+          type: 'object',
+          description: 'Color values to set (partial update supported). Keys: bg_dark, bg_light, bg_surface, bg_surface_dk, text_primary, text_inv, text_secondary, text_muted, text_muted_dk, accent, divider_dk. Values are hex strings.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['presentationId', 'colors'],
+    },
+  },
+
+  {
     name: 'presentation_build',
     description: 'Build an entire presentation from scratch in a single call. Creates the presentation, sets theme colors on the master, then creates each slide with background color, elements (shapes, text boxes, images, icons), and speaker notes. Elements can use theme roles (e.g. role: "title") instead of specifying fontSize/fontFamily/fontColor individually. Much faster than creating slides one at a time.',
     inputSchema: {

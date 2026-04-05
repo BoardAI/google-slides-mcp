@@ -32,6 +32,12 @@ import {
   PresentationBuildParams,
 } from './tools/presentation/index.js';
 import {
+  presentationGetThemeTool,
+  PresentationGetThemeParams,
+  presentationSetThemeTool,
+  PresentationSetThemeParams,
+} from './tools/presentation/theme-manager.js';
+import {
   createSlideTool,
   CreateSlideParams,
   deleteSlideTool,
@@ -868,6 +874,26 @@ async function main() {
         case 'presentation_get_design_system': {
           const params = args as unknown as PresentationGetDesignSystemParams;
           const result = await presentationGetDesignSystemTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'presentation_get_theme': {
+          const params = args as unknown as PresentationGetThemeParams;
+          const result = await presentationGetThemeTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'presentation_set_theme': {
+          const params = args as unknown as PresentationSetThemeParams;
+          const result = await presentationSetThemeTool(client, params);
           if (result.success) {
             return { content: [{ type: 'text', text: result.message }] };
           } else {
