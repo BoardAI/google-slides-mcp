@@ -54,6 +54,8 @@ import {
   SlideBuildParams,
   slideDuplicateModifyTool,
   SlideDuplicateModifyParams,
+  slideDuplicateBatchTool,
+  SlideDuplicateBatchParams,
   slideReadTool,
   SlideReadParams,
 } from './tools/slide/index.js';
@@ -103,6 +105,11 @@ import {
   addTableTool,
   AddTableParams,
 } from './tools/helpers/table.js';
+import { SlideRegistry } from './registry/slide-registry.js';
+import { registrySaveSlideTool, RegistrySaveSlideParams } from './tools/slide-registry/save.js';
+import { registryListSlidesTool, RegistryListSlidesParams } from './tools/slide-registry/list.js';
+import { registryRemoveSlideTool, RegistryRemoveSlideParams } from './tools/slide-registry/remove.js';
+import { registryUseSlideTool, RegistryUseSlideParams } from './tools/slide-registry/use.js';
 import {
   tableSetCellTool,
   tableFormatCellTextTool,
@@ -148,7 +155,7 @@ function loadCredentials(): OAuthCredentials {
 }
 
 // Initialize OAuth and check authentication
-async function initializeAuth(): Promise<{ oauthManager: OAuthManager; client: SlidesClient }> {
+async function initializeAuth(): Promise<{ oauthManager: OAuthManager; client: SlidesClient; slideRegistry: SlideRegistry }> {
   const credentials = loadCredentials();
   const tokenStore = new TokenStore();
   const oauthManager = new OAuthManager(credentials, tokenStore);
@@ -167,7 +174,8 @@ async function initializeAuth(): Promise<{ oauthManager: OAuthManager; client: S
   }
 
   const client = new SlidesClient(oauthManager);
-  return { oauthManager, client };
+  const slideRegistry = new SlideRegistry();
+  return { oauthManager, client, slideRegistry };
 }
 
 // Main server setup
@@ -175,7 +183,7 @@ async function main() {
   console.error('🚀 Starting Google Slides MCP Server...\n');
 
   // Initialize authentication
-  const { client } = await initializeAuth();
+  const { client, slideRegistry } = await initializeAuth();
 
   console.error('✅ Authentication successful!\n');
 
@@ -900,6 +908,56 @@ async function main() {
               ],
               isError: true,
             };
+          }
+        }
+
+        case 'slide_duplicate_batch': {
+          const params = args as unknown as SlideDuplicateBatchParams;
+          const result = await slideDuplicateBatchTool(client, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'registry_save_slide': {
+          const params = args as unknown as RegistrySaveSlideParams;
+          const result = await registrySaveSlideTool(slideRegistry, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'registry_list_slides': {
+          const params = args as unknown as RegistryListSlidesParams;
+          const result = await registryListSlidesTool(slideRegistry, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'registry_remove_slide': {
+          const params = args as unknown as RegistryRemoveSlideParams;
+          const result = await registryRemoveSlideTool(slideRegistry, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
+          }
+        }
+
+        case 'registry_use_slide': {
+          const params = args as unknown as RegistryUseSlideParams;
+          const result = await registryUseSlideTool(client, slideRegistry, params);
+          if (result.success) {
+            return { content: [{ type: 'text', text: result.message }] };
+          } else {
+            return { content: [{ type: 'text', text: `Error: ${result.error.message}` }], isError: true };
           }
         }
 

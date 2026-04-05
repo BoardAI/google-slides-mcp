@@ -20,6 +20,8 @@ export interface SlideDuplicateModifyParams {
     bold?: boolean;
     fillColor?: string;
     borderColor?: string;
+    imageUrl?: string;
+    imageReplaceMethod?: 'CENTER_CROP';
   }>;
 }
 
@@ -187,6 +189,21 @@ export async function slideDuplicateModifyTool(
               fields: shapeFields.join(','),
             },
           });
+        }
+
+        // Image replacement
+        if (change.imageUrl) {
+          if (!change.imageUrl.startsWith('https://')) {
+            return createErrorResponse('validation', `imageUrl must start with https:// (got "${change.imageUrl}")`);
+          }
+          const replaceReq: any = {
+            imageObjectId: targetElementId,
+            url: change.imageUrl,
+          };
+          if (change.imageReplaceMethod) {
+            replaceReq.imageReplaceMethod = change.imageReplaceMethod;
+          }
+          modifyRequests.push({ replaceImage: replaceReq });
         }
       }
 

@@ -427,6 +427,8 @@ export const TOOL_REGISTRY = [
               bold: { type: 'boolean', description: 'Set text bold' },
               fillColor: { type: 'string', description: 'New shape fill color as hex' },
               borderColor: { type: 'string', description: 'New shape border color as hex' },
+              imageUrl: { type: 'string', description: 'Public HTTPS URL to replace image content. Only works on image elements.' },
+              imageReplaceMethod: { type: 'string', enum: ['CENTER_CROP'], description: 'How to fit the new image. Omit to preserve aspect ratio.' },
             },
             required: ['elementId'],
           },
@@ -621,12 +623,14 @@ export const TOOL_REGISTRY = [
   },
   {
     name: 'element_duplicate',
-    description: 'Duplicate an existing element on a slide, creating an identical copy with a new element ID',
+    description: 'Duplicate an existing element on a slide, creating an identical copy with a new element ID. Optionally offset the copy so it does not land on top of the original.',
     inputSchema: {
       type: 'object',
       properties: {
         presentationId: { type: 'string', description: 'The ID of the presentation' },
         elementId: { type: 'string', description: 'The ID of the element to duplicate' },
+        offsetX: { type: 'number', description: 'Horizontal offset in points for the duplicate (default: 0, copy lands on top of original)' },
+        offsetY: { type: 'number', description: 'Vertical offset in points for the duplicate (default: 0)' },
       },
       required: ['presentationId', 'elementId'],
     },
@@ -930,6 +934,71 @@ export const TOOL_REGISTRY = [
         columnSpan: { type: 'integer', description: 'Number of columns in the merged range', minimum: 1 },
       },
       required: ['presentationId', 'tableId', 'row', 'column', 'rowSpan', 'columnSpan'],
+    },
+  },
+  // ─── Batch Duplication ──────────────────────────────────────────────────────
+  {
+    name: 'slide_duplicate_batch',
+    description: 'Duplicate multiple slides in a single call. Returns an array of original-to-new slide ID mappings. Optionally move all duplicates to a specific position.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presentationId: { type: 'string', description: 'The ID of the presentation' },
+        slideIds: { type: 'array', items: { type: 'string' }, description: 'Array of slide IDs to duplicate', minItems: 1 },
+        insertionIndex: { type: 'number', description: 'Optional zero-based index where the first duplicated slide should be inserted (rest follow sequentially)' },
+      },
+      required: ['presentationId', 'slideIds'],
+    },
+  },
+
+  // ─── Slide Registry ───────────────────────────────────────────────────────
+  {
+    name: 'registry_save_slide',
+    description: 'Save a slide to the reusable slide registry. The slide can later be copied into any presentation using registry_use_slide. If a slide with the same name already exists, it is overwritten.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Unique human-readable name for this template, e.g. "team-intro", "pricing-table", "title-dark"' },
+        presentationId: { type: 'string', description: 'The ID of the presentation containing the slide' },
+        slideId: { type: 'string', description: 'The ID of the slide to save' },
+        description: { type: 'string', description: 'Optional description of the slide template' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for filtering, e.g. ["dark", "intro", "client-deck"]' },
+      },
+      required: ['name', 'presentationId', 'slideId'],
+    },
+  },
+  {
+    name: 'registry_list_slides',
+    description: 'List all slides saved in the reusable slide registry. Optionally filter by name, description, or tag substring.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional filter: matches against name, description, and tags (case-insensitive substring)' },
+      },
+    },
+  },
+  {
+    name: 'registry_remove_slide',
+    description: 'Remove a slide from the reusable slide registry by name',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The name of the registry entry to remove' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'registry_use_slide',
+    description: 'Copy a slide from the registry into a target presentation. If the source is in the same presentation, duplicates it directly. For cross-presentation copies, creates a temporary single-slide presentation (Google API limitation prevents direct cross-deck slide injection). Returns the new slide ID and element mapping for same-presentation copies, or the temp presentation details for cross-presentation copies.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Registry entry name of the slide to use' },
+        targetPresentationId: { type: 'string', description: 'The ID of the destination presentation' },
+        insertionIndex: { type: 'number', description: 'Optional zero-based index where the slide should be inserted' },
+      },
+      required: ['name', 'targetPresentationId'],
     },
   },
 ] as const;

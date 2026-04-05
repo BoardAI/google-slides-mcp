@@ -12,7 +12,7 @@ export interface OAuthCredentials {
 
 const SCOPES = [
   'https://www.googleapis.com/auth/presentations',
-  'https://www.googleapis.com/auth/drive.metadata.readonly',
+  'https://www.googleapis.com/auth/drive',
 ];
 
 // For Desktop app OAuth, Google allows any localhost port even if only
