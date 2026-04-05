@@ -1,6 +1,84 @@
 import { Theme } from './types.js';
 
 /**
+ * Map from our theme color keys to Google Slides ThemeColorType values.
+ * These must match the mapping in presentation/build.ts applyThemeColorScheme().
+ */
+const COLOR_KEY_TO_THEME_COLOR: Record<string, string> = {
+  bg_dark: 'DARK1',
+  bg_light: 'LIGHT1',
+  text_primary: 'DARK2',
+  bg_surface: 'LIGHT2',
+  accent: 'ACCENT1',
+  bg_surface_dk: 'ACCENT2',
+  text_secondary: 'ACCENT3',
+  text_muted: 'ACCENT4',
+  text_muted_dk: 'ACCENT5',
+  divider_dk: 'ACCENT6',
+};
+
+/**
+ * Build a reverse map: hex value -> ThemeColorType for a given theme.
+ * Used to detect when an explicit hex value matches a theme color.
+ */
+function buildHexToThemeColorMap(theme: Theme): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const [key, themeColorType] of Object.entries(COLOR_KEY_TO_THEME_COLOR)) {
+    const hex = (theme.colors as any)[key];
+    if (hex) map[hex.toUpperCase()] = themeColorType;
+  }
+  // text_inv (white) maps to LIGHT1
+  if (theme.colors.text_inv) {
+    map[theme.colors.text_inv.toUpperCase()] = 'LIGHT1';
+  }
+  return map;
+}
+
+/**
+ * Resolve a color for the Google Slides API. Returns either a themeColor
+ * reference (inherits from master) or an rgbColor (static).
+ *
+ * Priority:
+ * 1. If colorValue is a theme key (e.g. "accent"), return { themeColor: "ACCENT1" }
+ * 2. If colorValue is a hex that matches a theme color, return { themeColor: ... }
+ * 3. Otherwise return { rgbColor: { red, green, blue } }
+ */
+export function resolveColorForAPI(
+  colorValue: string,
+  theme?: Theme
+): { themeColor: string } | { rgbColor: { red: number; green: number; blue: number } } {
+  if (theme) {
+    // Check if it's a theme color key name
+    const themeColorType = COLOR_KEY_TO_THEME_COLOR[colorValue];
+    if (themeColorType) {
+      return { themeColor: themeColorType };
+    }
+
+    // Check if the hex value matches a theme color
+    if (colorValue.startsWith('#')) {
+      const hexMap = buildHexToThemeColorMap(theme);
+      const match = hexMap[colorValue.toUpperCase()];
+      if (match) {
+        return { themeColor: match };
+      }
+    }
+  }
+
+  // Fallback: resolve to hex if it's a theme key, then convert to RGB
+  const hex = theme ? (resolveColor(colorValue, theme) || colorValue) : colorValue;
+  return { rgbColor: hexToRgbValues(hex) };
+}
+
+function hexToRgbValues(hex: string): { red: number; green: number; blue: number } {
+  const h = hex.replace('#', '');
+  return {
+    red: parseInt(h.substring(0, 2), 16) / 255,
+    green: parseInt(h.substring(2, 4), 16) / 255,
+    blue: parseInt(h.substring(4, 6), 16) / 255,
+  };
+}
+
+/**
  * Check if a hex color is visually dark (luminance < 0.4).
  * Used to auto-swap text colors on dark backgrounds.
  */

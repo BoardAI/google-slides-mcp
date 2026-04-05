@@ -7,7 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { Theme } from '../theme/types.js';
-import { resolveElement, resolveColor } from '../theme/resolve.js';
+import { resolveElement, resolveColor, resolveColorForAPI } from '../theme/resolve.js';
 import { computeLayout } from '../layout/engine.js';
 import { LayoutContainer } from '../layout/types.js';
 import { validateSlide, ValidationWarning } from '../validation/check.js';
@@ -71,6 +71,16 @@ function hexToRgb(hex: string): { red: number; green: number; blue: number } {
   };
 }
 
+// Theme-aware color: returns { themeColor } when possible, { rgbColor } otherwise.
+// Used for shape fills, borders, and text colors so they inherit from the master.
+let _buildTheme: Theme | undefined;
+function apiColor(colorValue: string): any {
+  return resolveColorForAPI(colorValue, _buildTheme);
+}
+function apiOpaqueColor(colorValue: string): any {
+  return { opaqueColor: resolveColorForAPI(colorValue, _buildTheme) };
+}
+
 function ptToEmu(pt: number): number {
   return Math.round(pt * 12700);
 }
@@ -114,6 +124,9 @@ export async function slideBuildTool(
   params: SlideBuildParams
 ): Promise<ToolResponse> {
   try {
+    // Set the theme for the apiColor/apiOpaqueColor helpers
+    _buildTheme = params.theme;
+
     // Resolve theme roles and color keys if a theme is provided
     // Pass slideBgColor so the resolver can auto-swap text colors on dark backgrounds
     const bgHex = params.slideBgColor
@@ -266,14 +279,14 @@ export async function slideBuildTool(
 
         if (el.fillColor) {
           shapeProperties.shapeBackgroundFill = {
-            solidFill: { color: { rgbColor: hexToRgb(el.fillColor) } },
+            solidFill: { color: apiColor(el.fillColor) },
           };
           fields.push('shapeBackgroundFill.solidFill.color');
         }
         if (el.borderColor) {
           shapeProperties.outline = {
             outlineFill: {
-              solidFill: { color: { rgbColor: hexToRgb(el.borderColor) } },
+              solidFill: { color: apiColor(el.borderColor) },
             },
             weight: { magnitude: ptToEmu(el.borderWidth || 0.5), unit: 'EMU' },
           };
@@ -346,7 +359,7 @@ export async function slideBuildTool(
 
         if (el.fillColor) {
           tbProps.shapeBackgroundFill = {
-            solidFill: { color: { rgbColor: hexToRgb(el.fillColor) } },
+            solidFill: { color: apiColor(el.fillColor) },
           };
           tbFields.push('shapeBackgroundFill.solidFill.color');
         }
@@ -380,9 +393,7 @@ export async function slideBuildTool(
           fields.push('fontFamily');
         }
         if (el.fontColor) {
-          style.foregroundColor = {
-            opaqueColor: { rgbColor: hexToRgb(el.fontColor) },
-          };
+          style.foregroundColor = apiOpaqueColor(el.fontColor);
           fields.push('foregroundColor');
         }
         if (el.bold !== undefined) {
@@ -437,9 +448,7 @@ export async function slideBuildTool(
             rangeFields.push('fontSize');
           }
           if (el.boldRange.color) {
-            rangeStyle.foregroundColor = {
-              opaqueColor: { rgbColor: hexToRgb(el.boldRange.color) },
-            };
+            rangeStyle.foregroundColor = apiOpaqueColor(el.boldRange.color);
             rangeFields.push('foregroundColor');
           }
           requests.push({
