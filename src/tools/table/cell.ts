@@ -7,6 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { parseHexColor, buildTextRange } from '../shared/format.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 import { validateHexColor, validateAlignment, validatePositiveNumber, Alignment } from '../../utils/validators.js';
 
 // ─── tableSetCellTool ────────────────────────────────────────────────────────
@@ -148,11 +149,11 @@ export async function tableFormatCellTextTool(
       if (fontSize != null)        { style.fontSize = { magnitude: fontSize, unit: 'PT' }; fields.push('fontSize'); }
       if (fontFamily != null)      { style.weightedFontFamily = { fontFamily }; fields.push('weightedFontFamily'); }
       if (foregroundColor != null) {
-        style.foregroundColor = { opaqueColor: { rgbColor: parseHexColor(foregroundColor) } };
+        style.foregroundColor = { opaqueColor: resolveColorForAPI(foregroundColor) };
         fields.push('foregroundColor');
       }
       if (backgroundColor != null) {
-        style.backgroundColor = { opaqueColor: { rgbColor: parseHexColor(backgroundColor) } };
+        style.backgroundColor = { opaqueColor: resolveColorForAPI(backgroundColor) };
         fields.push('backgroundColor');
       }
 
@@ -240,9 +241,7 @@ export async function tableStyleCellTool(
     if (hasBackground) {
       tableCellProperties.tableCellBackgroundFill = {
         solidFill: {
-          color: {
-            rgbColor: parseHexColor(backgroundColor!),
-          },
+          color: resolveColorForAPI(backgroundColor!),
         },
       };
       fields.push('tableCellBackgroundFill.solidFill');

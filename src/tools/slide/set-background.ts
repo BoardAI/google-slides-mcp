@@ -7,6 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { HEX_COLOR_RE, parseHexColor } from '../shared/format.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 
 export interface SlideSetBackgroundParams {
   presentationId: string;
@@ -37,7 +38,7 @@ export async function slideSetBackgroundTool(
     const pageBackgroundFill = color != null
       ? {
           solidFill: {
-            color: { rgbColor: parseHexColor(color) },
+            color: resolveColorForAPI(color),
           },
         }
       : {

@@ -7,6 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { HEX_COLOR_RE, parseHexColor } from '../shared/format.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 
 const VALID_ALIGNMENTS = ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'] as const;
 type Alignment = typeof VALID_ALIGNMENTS[number];
@@ -90,11 +91,11 @@ export async function elementFormatTextTool(
       if (fontSize != null)    { style.fontSize = { magnitude: fontSize, unit: 'PT' }; fields.push('fontSize'); }
       if (fontFamily != null)  { style.weightedFontFamily = { fontFamily }; fields.push('weightedFontFamily'); }
       if (foregroundColor != null) {
-        style.foregroundColor = { opaqueColor: { rgbColor: parseHexColor(foregroundColor) } };
+        style.foregroundColor = { opaqueColor: resolveColorForAPI(foregroundColor) };
         fields.push('foregroundColor');
       }
       if (backgroundColor != null) {
-        style.backgroundColor = { opaqueColor: { rgbColor: parseHexColor(backgroundColor) } };
+        style.backgroundColor = { opaqueColor: resolveColorForAPI(backgroundColor) };
         fields.push('backgroundColor');
       }
 

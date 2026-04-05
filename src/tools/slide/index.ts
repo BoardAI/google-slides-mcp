@@ -7,6 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { parseHexColor, genId } from '../shared/format.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 import { validateHexColor } from '../../utils/validators.js';
 
 export interface CreateSlideParams {
@@ -43,7 +44,7 @@ export async function createSlideTool(
           objectId: preassignedId,
           pageProperties: {
             pageBackgroundFill: {
-              solidFill: { color: { rgbColor: parseHexColor(params.backgroundColor) } },
+              solidFill: { color: resolveColorForAPI(params.backgroundColor) },
             },
           },
           fields: 'pageBackgroundFill.solidFill',

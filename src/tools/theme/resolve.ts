@@ -1,5 +1,11 @@
 import { Theme } from './types.js';
 
+const VALID_THEME_COLOR_TYPES = new Set([
+  'DARK1', 'DARK2', 'LIGHT1', 'LIGHT2',
+  'ACCENT1', 'ACCENT2', 'ACCENT3', 'ACCENT4', 'ACCENT5', 'ACCENT6',
+  'HYPERLINK', 'FOLLOWED_HYPERLINK',
+]);
+
 /**
  * Map from our theme color keys to Google Slides ThemeColorType values.
  * These must match the mapping in presentation/build.ts applyThemeColorScheme().
@@ -62,6 +68,11 @@ export function resolveColorForAPI(
         return { themeColor: match };
       }
     }
+  }
+
+  // Check if it's a direct ThemeColorType string (e.g. "ACCENT1")
+  if (!colorValue.startsWith('#') && VALID_THEME_COLOR_TYPES.has(colorValue.toUpperCase())) {
+    return { themeColor: colorValue.toUpperCase() };
   }
 
   // Fallback: resolve to hex if it's a theme key, then convert to RGB

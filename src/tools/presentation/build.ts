@@ -8,7 +8,7 @@ import {
 } from '../../utils/response.js';
 import { parseHexColor, genId } from '../shared/format.js';
 import { Theme } from '../theme/types.js';
-import { resolveColor } from '../theme/resolve.js';
+import { resolveColor, resolveColorForAPI } from '../theme/resolve.js';
 import { slideBuildTool, ElementSpec } from '../slide/build.js';
 
 interface SlideSpec {
@@ -84,7 +84,7 @@ export async function presentationBuildTool(
             objectId: slideId,
             pageProperties: {
               pageBackgroundFill: {
-                solidFill: { color: { rgbColor: parseHexColor(bgColor) } },
+                solidFill: { color: resolveColorForAPI(bgColor, params.theme) },
               },
             },
             fields: 'pageBackgroundFill.solidFill',

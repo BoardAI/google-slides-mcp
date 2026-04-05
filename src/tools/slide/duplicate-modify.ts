@@ -6,6 +6,7 @@ import {
   createErrorResponse,
   formatResponse,
 } from '../../utils/response.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 
 export interface SlideDuplicateModifyParams {
   presentationId: string;
@@ -138,7 +139,7 @@ export async function slideDuplicateModifyTool(
         }
         if (change.fontColor !== undefined) {
           textStyle.foregroundColor = {
-            opaqueColor: { rgbColor: hexToRgb(change.fontColor) },
+            opaqueColor: resolveColorForAPI(change.fontColor),
           };
           textFields.push('foregroundColor');
         }
@@ -168,14 +169,14 @@ export async function slideDuplicateModifyTool(
 
         if (change.fillColor !== undefined) {
           shapeProps.shapeBackgroundFill = {
-            solidFill: { color: { rgbColor: hexToRgb(change.fillColor) } },
+            solidFill: { color: resolveColorForAPI(change.fillColor) },
           };
           shapeFields.push('shapeBackgroundFill.solidFill.color');
         }
         if (change.borderColor !== undefined) {
           shapeProps.outline = {
             outlineFill: {
-              solidFill: { color: { rgbColor: hexToRgb(change.borderColor) } },
+              solidFill: { color: resolveColorForAPI(change.borderColor) },
             },
           };
           shapeFields.push('outline.outlineFill.solidFill.color');

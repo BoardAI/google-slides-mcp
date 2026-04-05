@@ -7,6 +7,7 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { HEX_COLOR_RE, parseHexColor } from '../shared/format.js';
+import { resolveColorForAPI } from '../theme/resolve.js';
 
 export interface ElementStyleParams {
   presentationId: string;
@@ -40,7 +41,7 @@ export async function elementStyleTool(
     if (fillColor != null) {
       shapeProperties.shapeBackgroundFill = {
         solidFill: {
-          color: { rgbColor: parseHexColor(fillColor) },
+          color: resolveColorForAPI(fillColor),
         },
       };
       fieldPaths.push('shapeBackgroundFill.solidFill');
@@ -52,7 +53,7 @@ export async function elementStyleTool(
       if (borderColor != null) {
         shapeProperties.outline.outlineFill = {
           solidFill: {
-            color: { rgbColor: parseHexColor(borderColor) },
+            color: resolveColorForAPI(borderColor),
           },
         };
         fieldPaths.push('outline.outlineFill.solidFill');
