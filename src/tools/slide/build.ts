@@ -126,6 +126,7 @@ export async function slideBuildTool(
         // Also resolve color keys in fillColor, borderColor
         if (resolved.fillColor) resolved.fillColor = resolveColor(resolved.fillColor, params.theme!) || resolved.fillColor;
         if (resolved.borderColor) resolved.borderColor = resolveColor(resolved.borderColor, params.theme!) || resolved.borderColor;
+        if (resolved.fontColor) resolved.fontColor = resolveColor(resolved.fontColor, params.theme!) || resolved.fontColor;
         return resolved;
       });
     }
