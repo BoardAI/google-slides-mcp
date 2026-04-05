@@ -75,30 +75,34 @@ function ptToEmu(pt: number): number {
   return Math.round(pt * 12700);
 }
 
+// Short random suffix to avoid ID collisions across slides in the same presentation
+const _uid = () => Math.random().toString(36).substring(2, 6);
+
 function generateSemanticId(el: ElementSpec, index: number): string {
   if (el.id) return el.id;
 
+  const suffix = `${index}_${_uid()}`;
   const prefix = el.type; // shape, textbox, image, icon
 
-  // Try to create a meaningful suffix from text content
+  // Try to create a meaningful name from text content
   if (el.text) {
     const slug = el.text
       .substring(0, 30)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_|_$/g, '');
-    return `${prefix}_${slug}_${index}`;
+    return `${prefix}_${slug}_${suffix}`;
   }
 
   if (el.type === 'icon' && el.icon) {
-    return `icon_${el.icon.replace(/[^a-z0-9]/g, '_')}_${index}`;
+    return `icon_${el.icon.replace(/[^a-z0-9]/g, '_')}_${suffix}`;
   }
 
   if (el.shapeType) {
-    return `${el.shapeType.toLowerCase()}_${index}`;
+    return `${el.shapeType.toLowerCase()}_${suffix}`;
   }
 
-  return `${prefix}_${index}`;
+  return `${prefix}_${suffix}`;
 }
 
 function buildIconUrl(icon: string, color: string, style: string): string {
