@@ -1,33 +1,39 @@
 # Google Slides MCP Server
 
-A Model Context Protocol (MCP) server that gives Claude comprehensive control over Google Slides. Create and edit presentations, manage slides, manipulate elements, work with tables, and more — all through natural language.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-8B5CF6?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkw0IDdWMTdMMTIgMjJMMjAgMTdWN0wxMiAyWiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+)](https://modelcontextprotocol.io/)
+[![Tests](https://img.shields.io/badge/tests-316_passing-brightgreen?logo=jest&logoColor=white)]()
+[![Tools](https://img.shields.io/badge/tools-59-orange)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Features
+An MCP server that gives AI assistants full control over Google Slides. Create presentations, manage themes, manipulate elements, work with tables, and build entire decks from a single call.
 
-- **43 tools** across presentations, slides, elements, tables, and helpers
-- **OAuth 2.0** authentication with automatic token refresh
-- **Google Drive integration** — list, export, rename, and copy presentations
-- **Full table support** — cell editing, formatting, rows, columns, merge/unmerge
-- **Element operations** — add, style, move, duplicate, group, layer, link
-- **Speaker notes** — read and write per-slide notes
-- **TypeScript** with 269 unit tests
+## What it does
 
-## Setup
+- **59 tools** for presentations, slides, elements, tables, themes, and a slide registry
+- **Native Google Slides theming** with 10-slot master color scheme. Change one color, update everything.
+- **`presentation_build`** creates an entire deck (presentation + theme + slides + elements) in one call
+- **Text roles** (title, h1, stat, body, etc.) with dark/light background variants
+- **Slide registry** for bookmarking and reusing your best slides
+- **OAuth 2.0** with automatic token refresh
+- **316 unit tests**
+
+## Quick start
 
 ### 1. Google Cloud credentials
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create or select a project
 3. Enable **Google Slides API** and **Google Drive API**
-4. Go to **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
+4. Go to **APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID**
 5. Configure consent screen if prompted (External, add your email as test user)
 6. Application type: **Desktop app**
-7. Download the JSON → save as `config/credentials.json`
+7. Download the JSON, save as `config/credentials.json`
 
 ### 2. Install and build
 
 ```bash
-git clone <repo-url>
+git clone git@github.com:antondkg/google-slides-mcp.git
 cd google-slides-mcp
 npm install
 npm run build
@@ -39,7 +45,7 @@ npm run build
 claude mcp add google-slides -- node /absolute/path/to/google-slides-mcp/dist/index.js
 ```
 
-Or for Claude Desktop, add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Or add to `~/.claude.json` manually:
 
 ```json
 {
@@ -54,86 +60,111 @@ Or for Claude Desktop, add to `~/Library/Application Support/Claude/claude_deskt
 
 ### 4. Authenticate
 
-On first launch a browser window opens for the Google OAuth consent flow. After approving, tokens are cached at `~/.config/google-slides-mcp/tokens.json` and every subsequent start is instant.
+On first launch, a browser window opens for Google OAuth. After approving, tokens are cached at `~/.config/google-slides-mcp/tokens.json`. Every subsequent start is instant.
 
-## Available Tools
+## Theme system
 
-### Presentation
-| Tool | Description |
-|---|---|
-| `presentation_create` | Create a new presentation |
-| `presentation_get` | Get metadata and slide list |
-| `presentation_list` | List presentations in Drive (optional name filter) |
-| `presentation_export` | Export to PDF or PPTX file |
-| `presentation_create_from_template` | Copy a presentation and replace `{{tokens}}` |
-| `presentation_rename` | Rename a presentation |
+Every presentation uses Google Slides' native master page color scheme. Pass a `theme` object to `presentation_build` and all elements get `themeColor` references that inherit from the master.
 
-### Slide
-| Tool | Description |
-|---|---|
-| `slide_create` | Add a new slide |
-| `slide_delete` | Delete a slide |
-| `slide_duplicate` | Duplicate a slide |
-| `slide_get` | List all elements on a slide with positions and text |
-| `slide_reorder` | Move a slide to a new position |
-| `slide_set_background` | Set background color or image |
-| `slide_thumbnail` | Get a PNG thumbnail URL |
-| `slide_get_notes` | Read speaker notes |
-| `slide_set_notes` | Write speaker notes |
+```
+presentation_build({
+  title: "My Deck",
+  theme: {
+    colors: {
+      bg_dark: "#181818",       // DARK1
+      bg_light: "#FAFAFA",      // LIGHT1 (also white text on dark slides)
+      text_primary: "#181818",  // DARK2
+      bg_surface: "#F0EEFF",    // LIGHT2
+      accent: "#4318FF",        // ACCENT1
+      bg_surface_dk: "#242424", // ACCENT2
+      text_secondary: "#46484D",// ACCENT3
+      text_muted: "#7A7C82",    // ACCENT4
+      text_muted_dk: "#B0B2B8", // ACCENT5
+      divider_dk: "#3A3A3A"     // ACCENT6
+    },
+    fonts: { heading: "Inter", body: "Inter" }
+  },
+  slides: [
+    { backgroundColor: "bg_dark", elements: [...] },
+    { backgroundColor: "bg_light", elements: [...] }
+  ]
+})
+```
 
-### Element
-| Tool | Description |
-|---|---|
-| `element_get` | Inspect an element (position, size, type, text) |
-| `element_delete` | Delete an element |
-| `element_update_text` | Replace text content |
-| `element_move_resize` | Move and/or resize an element |
-| `element_add_shape` | Add a shape (rectangle, ellipse, star, arrow, etc.) |
-| `element_style` | Set fill color, border color, border width |
-| `element_format_text` | Apply text formatting (bold, font size, color, alignment, bullets, etc.) |
-| `element_find` | Search elements by type, shape type, or text content |
-| `element_replace_image` | Swap image content (preserves position and size) |
-| `element_duplicate` | Duplicate an element |
-| `element_z_order` | Change element layering (bring to front, send to back, etc.) |
-| `element_group` | Group elements together |
-| `element_ungroup` | Ungroup elements |
-| `element_set_link` | Add or remove a hyperlink |
+Change the theme after creation with `presentation_set_theme({ colors: { accent: "#FF5733" } })`. All elements update instantly.
 
-### Helpers
-| Tool | Description |
-|---|---|
-| `add_text_box` | Add a text box with content and position |
-| `add_image` | Insert an image from a URL |
-| `add_table` | Insert a table with specified rows and columns |
+### Text roles
 
-### Table
-| Tool | Description |
-|---|---|
-| `table_set_cell` | Set cell text content |
-| `table_format_cell_text` | Format text within a cell |
-| `table_style_cell` | Set cell background color and padding |
-| `table_insert_rows` | Insert rows above or below a reference row |
-| `table_delete_rows` | Delete rows by index |
-| `table_set_row_height` | Set minimum row height |
-| `table_insert_columns` | Insert columns left or right of a reference column |
-| `table_delete_columns` | Delete columns by index |
-| `table_set_column_width` | Set column width |
-| `table_merge_cells` | Merge a rectangular range of cells |
-| `table_unmerge_cells` | Unmerge previously merged cells |
+Roles resolve to font size, weight, family, and color. Use dark-bg roles on dark slides and light-bg roles on light slides.
 
-## Coordinate System
+| Dark bg roles | Light bg roles |
+|--------------|---------------|
+| `title` (32pt, white) | `h1` (24pt, dark) |
+| `stat` (24pt, white) | `h2` (18pt, dark) |
+| `stat_label` (12pt, muted) | `subtitle` (14pt, gray) |
+| `button` (14pt, white, centered) | `body` (12pt, gray, 150% spacing) |
+| | `caption` (10pt, muted) |
+| | `label` (9pt, accent) |
+| | `card_title` / `card_body` |
 
-All positions and sizes are in **points** (pt). A standard 16:9 slide is **720 × 405 pt**. Origin (0, 0) is the top-left corner.
+## Available tools (59)
+
+### Presentation (9)
+`presentation_create` `presentation_get` `presentation_list` `presentation_build` `presentation_export` `presentation_create_from_template` `presentation_rename` `presentation_get_theme` `presentation_set_theme` `presentation_get_design_system`
+
+### Slide (13)
+`slide_create` `slide_delete` `slide_duplicate` `slide_duplicate_batch` `slide_duplicate_modify` `slide_get` `slide_read` `slide_build` `slide_reorder` `slide_set_background` `slide_thumbnail` `slide_get_notes` `slide_set_notes`
+
+### Element (15)
+`element_get` `element_find` `element_delete` `element_update_text` `element_move_resize` `element_add_shape` `element_style` `element_format_text` `element_replace_image` `element_duplicate` `element_z_order` `element_group` `element_ungroup` `element_set_link` `add_text_box` `add_image` `add_icon`
+
+### Table (11)
+`add_table` `table_set_cell` `table_format_cell_text` `table_style_cell` `table_insert_rows` `table_delete_rows` `table_set_row_height` `table_insert_columns` `table_delete_columns` `table_set_column_width` `table_merge_cells` `table_unmerge_cells`
+
+### Registry (4)
+`registry_save_slide` `registry_list_slides` `registry_remove_slide` `registry_use_slide`
+
+## Claude Code skill (optional)
+
+The `skills/` folder contains a Claude Code skill with design guidelines, layout patterns, and best practices for building polished presentations.
+
+### Install the skill
+
+```bash
+# From the repo root
+cp -r skills/google-slides-designer ~/.claude/skills/
+```
+
+Then when you ask Claude Code to build a slide deck, it automatically loads the skill with:
+- 10 verified slide layout patterns with exact coordinates
+- Icons8 integration guide (slug mappings, styles)
+- Full `presentation_build` examples
+- Sales demo workflow (master deck, per-prospect duplication)
+- Dark/light role selection rules
+- Card, table, and stat design best practices
+
+### Update the skill
+
+After pulling new changes:
+
+```bash
+cp -r skills/google-slides-designer ~/.claude/skills/
+```
+
+## Coordinate system
+
+All positions and sizes are in **points** (pt). A standard 16:9 slide is **720 x 405 pt**. Origin (0, 0) is the top-left corner.
 
 ```
 1 inch = 72 points
-Slide: 720pt wide × 405pt tall  (16:9)
+Slide: 720pt wide x 405pt tall (16:9)
+Safe area: x=60..660 (600pt wide), y=40..380 (340pt tall)
 ```
 
 ## Development
 
 ```bash
-npm test          # Run 269 unit tests
+npm test          # Run 316 unit tests
 npm run build     # Compile TypeScript
 npm run dev       # Watch mode (tsx)
 npm run clean     # Remove dist/
@@ -141,13 +172,13 @@ npm run clean     # Remove dist/
 
 ## Troubleshooting
 
-**"Credentials file not found"** — Ensure `config/credentials.json` exists with valid OAuth credentials from Google Cloud Console.
+**"Credentials file not found"**: Ensure `config/credentials.json` exists with valid OAuth credentials from Google Cloud Console.
 
-**"Not authenticated"** — Delete `~/.config/google-slides-mcp/tokens.json` and restart to trigger a new OAuth flow.
+**"Not authenticated"**: Delete `~/.config/google-slides-mcp/tokens.json` and restart to trigger a new OAuth flow.
 
-**"Permission denied"** — Check that the authenticated Google account has edit access to the presentation.
+**"Permission denied"**: Check that the authenticated Google account has edit access to the presentation.
 
-**Re-authenticate** — If you added Drive API scopes after initial setup, delete tokens and re-authenticate:
+**Re-authenticate** (e.g. after adding Drive API scopes):
 ```bash
 rm ~/.config/google-slides-mcp/tokens.json
 ```
