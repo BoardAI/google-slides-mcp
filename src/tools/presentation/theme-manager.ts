@@ -66,9 +66,6 @@ async function readThemeColors(
     }
   }
 
-  // Derive text_inv from LIGHT1 (bg_light)
-  colors.text_inv = colors.bg_light || '#FFFFFF';
-
   return colors as ThemeColors;
 }
 

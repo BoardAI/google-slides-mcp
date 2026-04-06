@@ -119,15 +119,18 @@ export async function slideSetNotesTool(
   try {
     const slide = await client.getSlide(presentationId, slideId);
     const notesBodyId = findNotesBodyId(slide);
+    const existingText = extractNotesText(slide);
 
-    const requests: any[] = [
-      {
+    const requests: any[] = [];
+
+    if (existingText.trim().length > 0) {
+      requests.push({
         deleteText: {
           objectId: notesBodyId,
           textRange: { type: 'ALL' },
         },
-      },
-    ];
+      });
+    }
 
     if (text) {
       requests.push({

@@ -16,7 +16,8 @@ export function formatResponse(
       let result = message + '\n\n';
       for (const [key, value] of Object.entries(data)) {
         const label = formatLabel(key);
-        result += `${label}: ${value}\n`;
+        const formatted = (typeof value === 'object' && value !== null) ? JSON.stringify(value, null, 2) : value;
+        result += `${label}: ${formatted}\n`;
       }
       return result.trim();
 

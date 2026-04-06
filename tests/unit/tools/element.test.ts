@@ -232,6 +232,9 @@ describe('Element Tools', () => {
   describe('elementUpdateTextTool', () => {
     it('should replace text with deleteText + insertText batch', async () => {
       mockClient.batchUpdate.mockResolvedValue({ replies: [{}] });
+      mockClient.getElement.mockResolvedValue({
+        shape: { text: { textElements: [{}, { textRun: { content: 'Old text' } }] } },
+      } as any);
 
       const result = await elementUpdateTextTool(mockClient, {
         presentationId: 'pres-123',

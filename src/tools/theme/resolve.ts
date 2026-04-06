@@ -1,14 +1,9 @@
 import { Theme } from './types.js';
 
-const VALID_THEME_COLOR_TYPES = new Set([
-  'DARK1', 'DARK2', 'LIGHT1', 'LIGHT2',
-  'ACCENT1', 'ACCENT2', 'ACCENT3', 'ACCENT4', 'ACCENT5', 'ACCENT6',
-  'HYPERLINK', 'FOLLOWED_HYPERLINK',
-]);
-
 /**
  * Map from our theme color keys to Google Slides ThemeColorType values.
- * These must match the mapping in presentation/build.ts applyThemeColorScheme().
+ * These are written to the master page color scheme by applyThemeColorScheme().
+ * Elements reference these via { themeColor: "ACCENT1" } etc.
  */
 const COLOR_KEY_TO_THEME_COLOR: Record<string, string> = {
   bg_dark: 'DARK1',
@@ -24,58 +19,30 @@ const COLOR_KEY_TO_THEME_COLOR: Record<string, string> = {
 };
 
 /**
- * Build a reverse map: hex value -> ThemeColorType for a given theme.
- * Used to detect when an explicit hex value matches a theme color.
- */
-function buildHexToThemeColorMap(theme: Theme): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const [key, themeColorType] of Object.entries(COLOR_KEY_TO_THEME_COLOR)) {
-    const hex = (theme.colors as any)[key];
-    if (hex) map[hex.toUpperCase()] = themeColorType;
-  }
-  // text_inv (white) maps to LIGHT1
-  if (theme.colors.text_inv) {
-    map[theme.colors.text_inv.toUpperCase()] = 'LIGHT1';
-  }
-  return map;
-}
-
-/**
- * Resolve a color for the Google Slides API. Returns either a themeColor
- * reference (inherits from master) or an rgbColor (static).
- *
- * Priority:
- * 1. If colorValue is a theme key (e.g. "accent"), return { themeColor: "ACCENT1" }
- * 2. If colorValue is a hex that matches a theme color, return { themeColor: ... }
- * 3. Otherwise return { rgbColor: { red, green, blue } }
+ * Resolve a color for the Google Slides API.
+ * Uses native themeColor references when possible (inherits from master page).
+ * Falls back to static rgbColor for hex values not in the theme.
  */
 export function resolveColorForAPI(
   colorValue: string,
   theme?: Theme
 ): { themeColor: string } | { rgbColor: { red: number; green: number; blue: number } } {
-  if (theme) {
-    // Check if it's a theme color key name
-    const themeColorType = COLOR_KEY_TO_THEME_COLOR[colorValue];
-    if (themeColorType) {
-      return { themeColor: themeColorType };
-    }
+  // 1. Check if it's a theme color key (e.g. "accent", "bg_dark", "bg_light")
+  const themeColorType = COLOR_KEY_TO_THEME_COLOR[colorValue];
+  if (themeColorType) {
+    return { themeColor: themeColorType };
+  }
 
-    // Check if the hex value matches a theme color
-    if (colorValue.startsWith('#')) {
-      const hexMap = buildHexToThemeColorMap(theme);
-      const match = hexMap[colorValue.toUpperCase()];
-      if (match) {
-        return { themeColor: match };
+  // 2. If it's a hex and we have a theme, check if it matches a theme color value
+  if (theme && colorValue.startsWith('#')) {
+    for (const [key, type] of Object.entries(COLOR_KEY_TO_THEME_COLOR)) {
+      if ((theme.colors as any)[key]?.toUpperCase() === colorValue.toUpperCase()) {
+        return { themeColor: type };
       }
     }
   }
 
-  // Check if it's a direct ThemeColorType string (e.g. "ACCENT1")
-  if (!colorValue.startsWith('#') && VALID_THEME_COLOR_TYPES.has(colorValue.toUpperCase())) {
-    return { themeColor: colorValue.toUpperCase() };
-  }
-
-  // Fallback: resolve to hex if it's a theme key, then convert to RGB
+  // 3. Fallback to static RGB
   const hex = theme ? (resolveColor(colorValue, theme) || colorValue) : colorValue;
   return { rgbColor: hexToRgbValues(hex) };
 }
@@ -90,34 +57,13 @@ function hexToRgbValues(hex: string): { red: number; green: number; blue: number
 }
 
 /**
- * Check if a hex color is visually dark (luminance < 0.4).
- * Used to auto-swap text colors on dark backgrounds.
- */
-function isDark(hex: string): boolean {
-  const h = hex.replace('#', '');
-  if (h.length < 6) return false;
-  const r = parseInt(h.substring(0, 2), 16) / 255;
-  const g = parseInt(h.substring(2, 4), 16) / 255;
-  const b = parseInt(h.substring(4, 6), 16) / 255;
-  // Relative luminance (sRGB)
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance < 0.4;
-}
-
-// Map dark-only text color keys to their light counterparts
-const DARK_BG_COLOR_SWAPS: Record<string, string> = {
-  text_primary: 'text_inv',
-  text_secondary: 'text_muted_dk',
-};
-
-/**
  * Resolve an element spec through a theme: apply role defaults,
  * map color keys to hex values, map font keys to font families.
  * Per-element overrides always win over role defaults.
  *
- * If slideBgHex is provided and is a dark color, text color keys that would
- * be unreadable on dark backgrounds are auto-swapped to light variants.
- * This only applies to role-derived colors (not explicit per-element fontColor).
+ * No auto-swap logic. Each role has a fixed color token. Use dark-bg roles
+ * (title, stat, stat_label, button) on dark slides and light-bg roles
+ * (h1, h2, subtitle, body, caption, label, card_title, card_body) on light slides.
  */
 export function resolveElement(element: any, theme: Theme, slideBgHex?: string): any {
   // If element has no role, return as-is
@@ -127,7 +73,6 @@ export function resolveElement(element: any, theme: Theme, slideBgHex?: string):
   if (!role) return element;
 
   const resolved = { ...element };
-  const onDarkBg = slideBgHex ? isDark(slideBgHex) : false;
 
   // Apply role defaults (only if element doesn't already specify)
   if (!resolved.fontSize && role.fontSize) resolved.fontSize = role.fontSize;
@@ -142,16 +87,9 @@ export function resolveElement(element: any, theme: Theme, slideBgHex?: string):
     resolved.fontFamily = theme.fonts[fontKey] || fontKey;
   }
 
-  // Resolve font color (with dark-background auto-swap)
+  // Resolve font color directly from the role (no auto-swap)
   if (!resolved.fontColor) {
-    let colorKey = role.color;
-
-    // Auto-swap dark text colors when on a dark background
-    if (onDarkBg && DARK_BG_COLOR_SWAPS[colorKey]) {
-      colorKey = DARK_BG_COLOR_SWAPS[colorKey];
-    }
-
-    resolved.fontColor = resolveColor(colorKey, theme) || colorKey;
+    resolved.fontColor = resolveColor(role.color, theme) || role.color;
   }
 
   // Clean up: remove role field (not needed for slide_build)

@@ -7,9 +7,18 @@ import {
   formatResponse,
 } from '../../utils/response.js';
 import { parseHexColor, genId } from '../shared/format.js';
-import { Theme } from '../theme/types.js';
+import { Theme, DEFAULT_THEME } from '../theme/types.js';
 import { resolveColor, resolveColorForAPI } from '../theme/resolve.js';
 import { slideBuildTool, ElementSpec } from '../slide/build.js';
+
+/** Merge user theme with defaults so roles/colors always have values */
+function mergeTheme(userTheme: Theme): Theme {
+  return {
+    colors: { ...DEFAULT_THEME.colors, ...userTheme.colors },
+    fonts: { ...DEFAULT_THEME.fonts, ...userTheme.fonts },
+    roles: { ...DEFAULT_THEME.roles, ...userTheme.roles },
+  };
+}
 
 interface SlideSpec {
   backgroundColor?: string;  // hex or theme color key (e.g. "bg_dark")
@@ -35,17 +44,19 @@ export async function presentationBuildTool(
 ): Promise<ToolResponse> {
   const warnings: string[] = [];
 
+  // Merge user theme with defaults so roles/colors are always complete
+  const theme = params.theme ? mergeTheme(params.theme) : undefined;
+
   try {
     // 1. Create the presentation
     const presentation = await client.createPresentation(params.title);
     const presentationId = presentation.presentationId!;
 
     // 2. If theme provided, set master page color scheme
-    if (params.theme) {
+    if (theme) {
       try {
-        await applyThemeColorScheme(client, presentationId, params.theme);
+        await applyThemeColorScheme(client, presentationId, theme);
       } catch (err: any) {
-        // Non-fatal: color scheme is optional
         warnings.push(`Could not set master color scheme: ${err.message}`);
       }
     }
@@ -63,8 +74,8 @@ export async function presentationBuildTool(
 
       // Resolve background color from theme if needed
       let bgColor = spec.backgroundColor;
-      if (bgColor && params.theme) {
-        bgColor = resolveColor(bgColor, params.theme) || bgColor;
+      if (bgColor && theme) {
+        bgColor = resolveColor(bgColor, theme) || bgColor;
       }
 
       // Create the slide
@@ -84,7 +95,7 @@ export async function presentationBuildTool(
             objectId: slideId,
             pageProperties: {
               pageBackgroundFill: {
-                solidFill: { color: resolveColorForAPI(bgColor, params.theme) },
+                solidFill: { color: resolveColorForAPI(bgColor, theme) },
               },
             },
             fields: 'pageBackgroundFill.solidFill',
@@ -101,7 +112,7 @@ export async function presentationBuildTool(
           presentationId,
           slideId,
           elements: spec.elements,
-          theme: params.theme,
+          theme: theme,
           validate: params.validate,
           slideBgColor: spec.backgroundColor,
         });
@@ -187,14 +198,21 @@ async function setSlideNotes(
   const notesBodyId = body?.objectId;
   if (!notesBodyId) return;
 
-  const requests: any[] = [
-    {
+  // Check if notes body has existing text before trying to delete
+  const existingText = (body.shape?.text?.textElements as any[] || [])
+    .map((te: any) => te.textRun?.content ?? '')
+    .join('');
+
+  const requests: any[] = [];
+
+  if (existingText.trim().length > 0) {
+    requests.push({
       deleteText: {
         objectId: notesBodyId,
         textRange: { type: 'ALL' },
       },
-    },
-  ];
+    });
+  }
 
   if (text) {
     requests.push({
